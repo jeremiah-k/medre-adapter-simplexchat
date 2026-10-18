@@ -1,0 +1,6 @@
+# Test fixtures use synthetic credentials; production checks remain enabled.
+exclude_dirs:
+  - tests
+skips:
+  - B101 # Defensive internal invariants.
+  - B110 # Reviewed best-effort cleanup.

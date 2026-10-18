@@ -1,0 +1,11 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "description": "MEDRE core is qualified from the CI checkout or a locked deployment project",
+      "matchDatasources": ["pypi"],
+      "matchPackageNames": ["medre"],
+      "enabled": false
+    }
+  ]
+}
