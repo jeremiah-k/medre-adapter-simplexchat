@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jeremiah-k/medre-adapter-simplexchat/blob/main/docs/schemas/config.schema.json",
+  "title": "SimpleX adapter configuration block",
+  "type": "object",
+  "properties": {
+    "adapter_id": {
+      "type": "string"
+    },
+    "database_prefix": {
+      "type": "string"
+    },
+    "database_key": {
+      "type": "string",
+      "writeOnly": true
+    },
+    "state_dir": {
+      "type": "string"
+    },
+    "native_cache_dir": {
+      "type": "string"
+    },
+    "libs_dir": {
+      "type": "string"
+    },
+    "origin_label": {
+      "type": "string"
+    },
+    "relay_prefix": {
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "adapter_kind": {
+      "enum": ["real", "fake"]
+    },
+    "user_id": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "chats": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^(group|contact):[1-9][0-9]{0,18}$"
+      },
+      "uniqueItems": true
+    },
+    "max_text_bytes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "command_timeout_seconds": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "startup_timeout_seconds": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "poll_interval_seconds": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    }
+  },
+  "additionalProperties": false
+}
