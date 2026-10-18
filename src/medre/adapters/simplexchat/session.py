@@ -1,0 +1,210 @@
+"""Bound native calls and abort the owned process on uncertain outcomes."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import signal
+import sys
+from dataclasses import asdict
+from uuid import uuid4
+
+from .config import SimplexChatConfig
+from .state import ProfileLease
+
+_STOP_TIMEOUT = 5.0
+_DRAIN_TIMEOUT = 2.0
+
+
+class SessionError(RuntimeError):
+    """Native session failure; the command may have reached the worker."""
+
+
+class SessionUnavailable(SessionError):
+    """A call refused before any command bytes reached the worker."""
+
+
+class SimplexChatSession:
+    def __init__(self, config: SimplexChatConfig) -> None:
+        self.config = config
+        self.process = None
+        self.reader = None
+        self.lease = None
+        self.ready = None
+        self.pending = {}
+        self.wake = asyncio.Event()
+        self.lock = asyncio.Lock()
+        self.failed = False
+        self.used = False
+
+    async def start(self, *, create_name: str | None = None) -> None:
+        if self.used:
+            raise SessionError("SimpleX sessions cannot be reused")
+        self.used = True
+        self.lease = ProfileLease(self.config.database_prefix)
+        self.ready = asyncio.get_running_loop().create_future()
+        environment = os.environ.copy()
+        if self.config.native_cache_dir:
+            environment["XDG_CACHE_HOME"] = self.config.native_cache_dir
+        if self.config.libs_dir:
+            environment["SIMPLEX_LIBS_DIR"] = self.config.libs_dir
+        try:
+            self.process = await asyncio.create_subprocess_exec(
+                sys.executable,
+                "-m",
+                "medre.adapters.simplexchat.worker",
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+                env=environment,
+                limit=4 * 1024 * 1024,
+                start_new_session=sys.platform != "win32",
+            )
+            self.reader = asyncio.create_task(self._read())
+            async with asyncio.timeout(self.config.startup_timeout_seconds):
+                self.process.stdin.write(
+                    (
+                        json.dumps({**asdict(self.config), "create_name": create_name})
+                        + "\n"
+                    ).encode()
+                )
+                await self.process.stdin.drain()
+                user_id = await asyncio.shield(self.ready)
+            if user_id != self.config.user_id:
+                raise SessionError(
+                    "SimpleX active user differs from configured user_id; initialize or select the intended profile explicitly"
+                )
+        except BaseException:
+            await self.stop()
+            raise
+
+    async def _read(self) -> None:
+        try:
+            while line := await self.process.stdout.readline():
+                if not line.startswith(b"SXRPC "):
+                    continue
+                record = json.loads(line[6:])
+                if record["kind"] == "ready":
+                    self.ready.set_result(record["user_id"])
+                elif record["kind"] == "wake":
+                    self.wake.set()
+                elif record["kind"] == "result":
+                    future = self.pending.get(record.get("id"))
+                    if future is not None and not future.done():
+                        if "error" in record:
+                            future.set_exception(
+                                SessionError("SimpleX native command rejected")
+                            )
+                        else:
+                            future.set_result(record["result"])
+                else:
+                    raise SessionError("SimpleX native worker failed")
+        except Exception:
+            pass
+        finally:
+            self.failed = True
+            for future in [self.ready, *self.pending.values()]:
+                if future is not None and not future.done():
+                    future.set_exception(
+                        SessionError("SimpleX native worker disconnected")
+                    )
+            self.wake.set()
+
+    async def call(self, operation: str, **args):
+        async with self.lock:
+            if (
+                self.failed
+                or self.process is None
+                or self.process.returncode is not None
+            ):
+                raise SessionUnavailable("SimpleX session is unavailable")
+            command = uuid4().hex
+            future = asyncio.get_running_loop().create_future()
+            self.pending[command] = future
+            try:
+                async with asyncio.timeout(self.config.command_timeout_seconds):
+                    self.process.stdin.write(
+                        (
+                            json.dumps({"op": operation, "id": command, "args": args})
+                            + "\n"
+                        ).encode()
+                    )
+                    await self.process.stdin.drain()
+                    return await future
+            except (
+                TimeoutError,
+                asyncio.CancelledError,
+                BrokenPipeError,
+                ConnectionResetError,
+            ):
+                await self.stop()
+                if asyncio.current_task().cancelling():
+                    raise
+                raise SessionError(
+                    "SimpleX native command outcome is uncertain"
+                ) from None
+            finally:
+                self.pending.pop(command, None)
+                if not future.done():
+                    future.cancel()
+                elif not future.cancelled():
+                    future.exception()
+
+    def _kill_owned(self) -> None:
+        if self.process is None:
+            return
+        if sys.platform == "win32":
+            if self.process.returncode is None:
+                self.process.kill()
+        else:
+            try:
+                os.killpg(self.process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+    async def stop(self) -> None:
+        process = self.process
+        try:
+            if process is not None:
+                if process.returncode is None:
+                    try:
+                        async with asyncio.timeout(_STOP_TIMEOUT):
+                            process.stdin.write(b'{"op":"close","id":"close"}\n')
+                            await process.stdin.drain()
+                            process.stdin.close()
+                            await process.wait()
+                    except (TimeoutError, BrokenPipeError, ConnectionResetError):
+                        # A descendant can keep stdout open after the leader
+                        # exits. Kill the owned group even when returncode is set.
+                        self._kill_owned()
+                        await asyncio.wait_for(process.wait(), _DRAIN_TIMEOUT)
+                if self.reader is not None:
+                    try:
+                        await asyncio.wait_for(
+                            asyncio.shield(self.reader), _DRAIN_TIMEOUT
+                        )
+                    except TimeoutError:
+                        self._kill_owned()
+                        await asyncio.wait_for(self.reader, _DRAIN_TIMEOUT)
+        finally:
+            try:
+                if process is not None:
+                    self._kill_owned()
+                    if process.returncode is None:
+                        await asyncio.wait_for(process.wait(), _DRAIN_TIMEOUT)
+            finally:
+                if self.reader is not None and not self.reader.done():
+                    self.reader.cancel()
+                if (
+                    self.ready is not None
+                    and self.ready.done()
+                    and not self.ready.cancelled()
+                ):
+                    self.ready.exception()
+                if self.lease is not None:
+                    self.lease.close()
+                    self.lease = None
+                self.failed = True
+                if self.reader is not None:
+                    await asyncio.gather(self.reader, return_exceptions=True)

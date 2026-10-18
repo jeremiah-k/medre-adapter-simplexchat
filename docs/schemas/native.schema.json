@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SimpleX native metadata namespace version 1",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "user_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "conversation": {
+      "type": "string",
+      "pattern": "^(group|contact):[1-9][0-9]{0,18}$"
+    },
+    "item_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sender_label": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "user_id",
+    "conversation",
+    "item_id",
+    "sender_label"
+  ]
+}

@@ -1,0 +1,55 @@
+[project]
+name = "medre-adapter-simplexchat"
+version = "0.1.0"
+description = "SimpleX Chat groups for MEDRE through the official Python client"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+classifiers = ["Typing :: Typed"]
+dependencies = ["medre>=0.1.0,<0.2.0", "simplex-chat==7.0.2"]
+
+[project.scripts]
+medre-simplexchat = "medre.adapters.simplexchat.cli:main"
+
+[project.entry-points."medre.adapters"]
+simplexchat = "medre.adapters.simplexchat.plugin:adapter_spec"
+
+[project.optional-dependencies]
+test = [
+  "pytest==9.1.1",
+  "pytest-asyncio==1.4.0",
+  "pytest-timeout==2.4.0",
+  "pytest-cov==7.1.0",
+  "jsonschema==4.26.0",
+]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"medre.adapters.simplexchat" = ["py.typed"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["src"]
+filterwarnings = ["error"]
+timeout = 30
+addopts = "-m 'not simplexchat_sdk and not live'"
+markers = [
+  "simplexchat_sdk: contracts against the released official native client",
+  "live: opt-in message delivery between dedicated SimpleX profiles",
+]
+
+[tool.ruff]
+line-length = 88
+[tool.ruff.lint]
+select = ["F", "E4", "E7", "E9", "B", "ASYNC", "RUF100"]
+ignore = ["ASYNC109"]
+[tool.black]
+target-version = ["py311"]

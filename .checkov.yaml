@@ -1,0 +1,4 @@
+# Maintainer-only dispatch selects the core source revision for compatibility
+# qualification. The workflow has read-only permissions and does not deploy.
+skip-check:
+  - CKV_GHA_7
