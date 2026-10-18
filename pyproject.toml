@@ -8,6 +8,9 @@ license = "MIT"
 classifiers = ["Typing :: Typed"]
 dependencies = ["medre>=0.1.0,<0.2.0", "simplex-chat==7.0.2"]
 
+[project.scripts]
+medre-simplexchat = "medre.adapters.simplexchat.cli:main"
+
 [project.entry-points."medre.adapters"]
 simplexchat = "medre.adapters.simplexchat.plugin:adapter_spec"
 
