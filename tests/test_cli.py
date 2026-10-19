@@ -217,3 +217,15 @@ def test_json_discovery_escapes_c1_controls_without_changing_values(
     text = capsys.readouterr().out
     assert "\u009b" not in text
     assert json.loads(text)[0]["name"] == "Eve\u009b31m"
+
+
+def test_main_module_is_safe_to_import(monkeypatch, capsys):
+    """Tooling can discover adapter modules without invoking the operator CLI."""
+    import importlib
+    import sys
+
+    monkeypatch.setattr(sys, "argv", ["discovery", "--not-a-cli-option"])
+    importlib.import_module("medre.adapters.simplexchat.__main__")
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert not captured.err
