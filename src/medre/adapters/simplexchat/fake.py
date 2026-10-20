@@ -7,10 +7,13 @@ from uuid import uuid4
 import msgspec
 
 from medre.core.contracts.adapter import (
+    AdapterContext,
     AdapterHandoffResult,
     AdapterInfo,
     AdapterSendError,
 )
+from medre.core.events.canonical import CanonicalEvent
+from medre.core.rendering.renderer import RenderingResult
 
 from .adapter import SimplexChatAdapter, validate_payload
 from .codec import SimplexChatCodec
@@ -22,9 +25,9 @@ class FakeSimplexChatAdapter(SimplexChatAdapter):
         self, adapter_id: str, config: SimplexChatConfig | None = None
     ) -> None:
         super().__init__(config or SimplexChatConfig(adapter_id, chats=("group:1",)))
-        self.delivered_payloads = []
+        self.delivered_payloads: list[RenderingResult] = []
 
-    async def start(self, ctx) -> None:
+    async def start(self, ctx: AdapterContext) -> None:
         self.ctx = ctx
         self._mark_started(ctx)
         self.state = "healthy"
@@ -32,7 +35,7 @@ class FakeSimplexChatAdapter(SimplexChatAdapter):
     async def stop(self, timeout: float = 5.0) -> None:
         self.state = "unknown"
 
-    async def deliver(self, result):
+    async def deliver(self, result: RenderingResult) -> AdapterHandoffResult:
         validate_payload(result, self.config)
         if self.state != "healthy":
             raise AdapterSendError("SimpleX fake is not started")
@@ -44,7 +47,7 @@ class FakeSimplexChatAdapter(SimplexChatAdapter):
             note="SDK-free fake; no native receipt",
         )
 
-    async def health_check(self):
+    async def health_check(self) -> AdapterInfo:
         return AdapterInfo(
             self.adapter_id,
             self.platform,
@@ -54,7 +57,7 @@ class FakeSimplexChatAdapter(SimplexChatAdapter):
             health=self.state,
         )
 
-    def diagnostics(self):
+    def diagnostics(self) -> dict[str, object]:
         return {
             "fake": True,
             "health": self.state,
@@ -67,7 +70,7 @@ class FakeSimplexChatAdapter(SimplexChatAdapter):
         text: str,
         event_kind: str = "message.created",
         channel: str | None = None,
-    ):
+    ) -> CanonicalEvent:
         if event_kind not in {"message.created", "message.text"}:
             raise ValueError("SimpleX fake supports text messages")
         channel = channel or self.config.chats[0]

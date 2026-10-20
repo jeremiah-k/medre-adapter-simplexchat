@@ -8,6 +8,7 @@ import os
 import signal
 import sys
 from dataclasses import asdict
+from typing import Any
 from uuid import uuid4
 
 from .config import SimplexChatConfig
@@ -28,11 +29,11 @@ class SessionUnavailable(SessionError):
 class SimplexChatSession:
     def __init__(self, config: SimplexChatConfig) -> None:
         self.config = config
-        self.process = None
-        self.reader = None
-        self.lease = None
-        self.ready = None
-        self.pending = {}
+        self.process: asyncio.subprocess.Process | None = None
+        self.reader: asyncio.Task[None] | None = None
+        self.lease: ProfileLease | None = None
+        self.ready: asyncio.Future[Any] | None = None
+        self.pending: dict[str, asyncio.Future[Any]] = {}
         self.wake = asyncio.Event()
         self.lock = asyncio.Lock()
         self.failed = False
@@ -43,14 +44,15 @@ class SimplexChatSession:
             raise SessionError("SimpleX sessions cannot be reused")
         self.used = True
         self.lease = ProfileLease(self.config.database_prefix)
-        self.ready = asyncio.get_running_loop().create_future()
+        ready = asyncio.get_running_loop().create_future()
+        self.ready = ready
         environment = os.environ.copy()
         if self.config.native_cache_dir:
             environment["XDG_CACHE_HOME"] = self.config.native_cache_dir
         if self.config.libs_dir:
             environment["SIMPLEX_LIBS_DIR"] = self.config.libs_dir
         try:
-            self.process = await asyncio.create_subprocess_exec(
+            process = await asyncio.create_subprocess_exec(
                 sys.executable,
                 "-m",
                 "medre.adapters.simplexchat.worker",
@@ -61,16 +63,20 @@ class SimplexChatSession:
                 limit=4 * 1024 * 1024,
                 start_new_session=sys.platform != "win32",
             )
+            self.process = process
             self.reader = asyncio.create_task(self._read())
+            stdin = process.stdin
+            if stdin is None:
+                raise SessionUnavailable("SimpleX session is unavailable")
             async with asyncio.timeout(self.config.startup_timeout_seconds):
-                self.process.stdin.write(
+                stdin.write(
                     (
                         json.dumps({**asdict(self.config), "create_name": create_name})
                         + "\n"
                     ).encode()
                 )
-                await self.process.stdin.drain()
-                user_id = await asyncio.shield(self.ready)
+                await stdin.drain()
+                user_id = await asyncio.shield(ready)
             if user_id != self.config.user_id:
                 raise SessionError(
                     "SimpleX active user differs from configured user_id; initialize or select the intended profile explicitly"
@@ -81,12 +87,17 @@ class SimplexChatSession:
 
     async def _read(self) -> None:
         try:
-            while line := await self.process.stdout.readline():
+            reader = self.process
+            stdout = reader.stdout if reader is not None else None
+            ready = self.ready
+            if stdout is None or ready is None:
+                raise SessionError("SimpleX session is unavailable")
+            while line := await stdout.readline():
                 if not line.startswith(b"SXRPC "):
                     continue
                 record = json.loads(line[6:])
                 if record["kind"] == "ready":
-                    self.ready.set_result(record["user_id"])
+                    ready.set_result(record["user_id"])
                 elif record["kind"] == "wake":
                     self.wake.set()
                 elif record["kind"] == "result":
@@ -111,7 +122,7 @@ class SimplexChatSession:
                     )
             self.wake.set()
 
-    async def call(self, operation: str, **args):
+    async def call(self, operation: str, **args: Any) -> Any:
         async with self.lock:
             if (
                 self.failed
@@ -124,13 +135,16 @@ class SimplexChatSession:
             self.pending[command] = future
             try:
                 async with asyncio.timeout(self.config.command_timeout_seconds):
-                    self.process.stdin.write(
+                    stdin = self.process.stdin
+                    if stdin is None:
+                        raise SessionUnavailable("SimpleX session is unavailable")
+                    stdin.write(
                         (
                             json.dumps({"op": operation, "id": command, "args": args})
                             + "\n"
                         ).encode()
                     )
-                    await self.process.stdin.drain()
+                    await stdin.drain()
                     return await future
             except (
                 TimeoutError,
@@ -139,7 +153,8 @@ class SimplexChatSession:
                 ConnectionResetError,
             ):
                 await self.stop()
-                if asyncio.current_task().cancelling():
+                task = asyncio.current_task()
+                if task is None or task.cancelling():
                     raise
                 raise SessionError(
                     "SimpleX native command outcome is uncertain"
@@ -168,11 +183,14 @@ class SimplexChatSession:
         try:
             if process is not None:
                 if process.returncode is None:
+                    stdin = process.stdin
+                    if stdin is None:
+                        raise SessionError("SimpleX session is unavailable")
                     try:
                         async with asyncio.timeout(_STOP_TIMEOUT):
-                            process.stdin.write(b'{"op":"close","id":"close"}\n')
-                            await process.stdin.drain()
-                            process.stdin.close()
+                            stdin.write(b'{"op":"close","id":"close"}\n')
+                            await stdin.drain()
+                            stdin.close()
                             await process.wait()
                     except (TimeoutError, BrokenPipeError, ConnectionResetError):
                         # A descendant can keep stdout open after the leader

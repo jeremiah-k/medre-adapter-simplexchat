@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 
@@ -18,6 +18,9 @@ from medre.core.contracts.adapter import (
     AdapterRole,
     AdapterSendError,
 )
+from typing import Any
+
+from medre.core.ingress import IngressProvenance
 from medre.core.rendering.renderer import RenderingResult
 
 from .codec import SimplexChatCodec, chat_channel
@@ -72,20 +75,27 @@ class SimplexChatAdapter(AdapterContract):
     role = AdapterRole.HYBRID
 
     def __init__(
-        self, config: SimplexChatConfig, *, session_factory=SimplexChatSession
+        self,
+        config: SimplexChatConfig,
+        *,
+        session_factory: Callable[[SimplexChatConfig], SimplexChatSession] = (
+            SimplexChatSession
+        ),
     ) -> None:
         super().__init__()
         self.config = config.validate()
         self.adapter_id = config.adapter_id
         self._capabilities = replace(CAPABILITIES, max_text_bytes=config.max_text_bytes)
-        self.ctx = None
-        self.session = None
-        self.codec = None
-        self.ledger = None
-        self.session_factory = session_factory
-        self.task = None
+        self.ctx: AdapterContext | None = None
+        self.session: SimplexChatSession | None = None
+        self.codec: SimplexChatCodec | None = None
+        self.ledger: HandoffLedger | None = None
+        self.session_factory: Callable[[SimplexChatConfig], SimplexChatSession] = (
+            session_factory
+        )
+        self.task: asyncio.Task[None] | None = None
         self.channels = set(config.chats)
-        self.inbox = None
+        self.inbox: InboxLedger | None = None
         self.state = "unknown"
         self.admission_failures = 0
 
@@ -100,7 +110,8 @@ class SimplexChatAdapter(AdapterContract):
             raise AdapterPermanentError(
                 "Configure a SimpleX profile, state directory, and conversations"
             )
-        if not all((ctx.admit_inbound, ctx.load_checkpoint, ctx.commit_checkpoint)):
+        load = ctx.load_checkpoint
+        if ctx.admit_inbound is None or load is None or ctx.commit_checkpoint is None:
             raise AdapterPermanentError(
                 "SimpleX requires durable admission and checkpoint callbacks"
             )
@@ -115,17 +126,22 @@ class SimplexChatAdapter(AdapterContract):
         self.ctx = ctx
         self._mark_started(ctx)
         self.state = "starting"
-        self.session = self.session_factory(self.config)
+        session = self.session_factory(self.config)
+        self.session = session
         try:
-            await self.session.start()
-            self.codec = SimplexChatCodec(self.config, self.session.lease.namespace)
+            await session.start()
+            lease = session.lease
+            if lease is None:
+                raise SessionError("SimpleX profile lease is unavailable")
+            self.codec = SimplexChatCodec(self.config, lease.namespace)
             self.ledger = HandoffLedger(Path(self.config.state_dir) / "handoffs.sqlite")
             self.inbox = InboxLedger(
                 Path(self.config.state_dir) / "inbox.sqlite", self.codec.profile
             )
+            inbox = self.inbox
             for channel in self.config.chats:
-                checkpoint = await ctx.load_checkpoint(self._stream(channel))
-                initialized = self.inbox.initialized(channel)
+                checkpoint = await load(self._stream(channel))
+                initialized = inbox.initialized(channel)
                 if checkpoint is not None:
                     metadata = json.loads(checkpoint.metadata_json)
                     if (
@@ -140,7 +156,8 @@ class SimplexChatAdapter(AdapterContract):
                 # The official secondary controller enables history queries
                 # without subscribing chats. Retained IDs also deduplicate any
                 # native events interleaved with timestamp-ordered pagination.
-                before, anchors = None, set()
+                before: int | None = None
+                anchors: set[int] = set()
                 missed_pages: list[int | None] = []
                 while True:
                     info, rows = await self._history(channel, before)
@@ -152,14 +169,14 @@ class SimplexChatAdapter(AdapterContract):
                         missed = [
                             row
                             for row in rows
-                            if not self.inbox.contains(channel, row["meta"]["itemId"])
+                            if not inbox.contains(channel, row["meta"]["itemId"])
                         ]
                         if missed:
                             missed_pages.append(before)
                     else:
                         # On first use the existing history is a baseline, not
                         # an ingress replay. Batch its durable ID writes.
-                        self.inbox.admitted_many(
+                        inbox.admitted_many(
                             channel, [row["meta"]["itemId"] for row in rows]
                         )
                     if len(rows) < 64:
@@ -184,10 +201,10 @@ class SimplexChatAdapter(AdapterContract):
                         )
                         if item_id is not None:
                             admitted.append(item_id)
-                    self.inbox.admitted_many(channel, admitted)
-                self.inbox.initialize(channel)
+                    inbox.admitted_many(channel, admitted)
+                inbox.initialize(channel)
                 await self._checkpoint(channel)
-            await self.session.call("start")
+            await session.call("start")
             self.state = "healthy"
             self.task = asyncio.create_task(self._run())
         except BaseException:
@@ -199,13 +216,17 @@ class SimplexChatAdapter(AdapterContract):
         return f"simplexchat:{self.config.user_id}:{channel}"
 
     async def _checkpoint(self, channel: str) -> None:
-        await self.ctx.commit_checkpoint(
+        ctx = self.ctx
+        codec = self.codec
+        if ctx is None or codec is None or ctx.commit_checkpoint is None:
+            raise AdapterPermanentError("SimpleX checkpoints are unavailable")
+        await ctx.commit_checkpoint(
             self._stream(channel),
             "initialized",
-            json.dumps({"profile_id": self.codec.profile, "mode": "retained_ids_v1"}),
+            json.dumps({"profile_id": codec.profile, "mode": "retained_ids_v1"}),
         )
 
-    def _validate_conversation(self, info: Mapping, channel: str) -> None:
+    def _validate_conversation(self, info: Mapping[str, Any], channel: str) -> None:
         if chat_channel(info) != channel:
             raise AdapterPermanentError(
                 "SimpleX history returned a different conversation"
@@ -236,9 +257,14 @@ class SimplexChatAdapter(AdapterContract):
         ):
             raise AdapterPermanentError("SimpleX contact is not active")
 
-    async def _history(self, channel: str, before: int | None, *, count: int = 64):
+    async def _history(
+        self, channel: str, before: int | None, *, count: int = 64
+    ) -> tuple[Mapping[str, Any], list[Mapping[str, Any]]]:
         kind, number = self.config.destination(channel)
-        result = await self.session.call(
+        session = self.session
+        if session is None:
+            raise SessionError("SimpleX session is unavailable")
+        result = await session.call(
             "history", chat_type=kind, chat_id=number, before=before, count=count
         )
         if (
@@ -247,7 +273,9 @@ class SimplexChatAdapter(AdapterContract):
             or not isinstance(result.get("chatItems"), list)
         ):
             raise AdapterPermanentError("Malformed SimpleX history response")
-        rows = result["chatItems"]
+        # Every surviving row is a Mapping: the ID validation below rejects
+        # any page whose row count diverges from the Mapping-filtered IDs.
+        rows: list[Mapping[str, Any]] = result["chatItems"]
         ids = [
             (
                 row["meta"].get("itemId")
@@ -264,36 +292,50 @@ class SimplexChatAdapter(AdapterContract):
             or len(rows) > count
         ):
             raise AdapterPermanentError("Malformed SimpleX history item IDs")
-        return result["chatInfo"], rows
+        chat_info: Mapping[str, Any] = result["chatInfo"]
+        return chat_info, rows
 
     async def _ingest(
-        self, info: Mapping, row: Mapping, provenance: str, *, checkpoint: bool = True
+        self,
+        info: Mapping[str, Any],
+        row: Mapping[str, Any],
+        provenance: IngressProvenance,
+        *,
+        checkpoint: bool = True,
     ) -> int | None:
+        codec = self.codec
+        inbox = self.inbox
+        ctx = self.ctx
+        if codec is None or inbox is None or ctx is None or ctx.admit_inbound is None:
+            raise AdapterPermanentError("SimpleX ingress is not started")
         channel = chat_channel(info)
         if channel not in self.channels:
-            return
+            return None
         self._validate_conversation(info, channel)
         meta = row.get("meta")
         item_id = meta.get("itemId") if isinstance(meta, Mapping) else None
         if type(item_id) is not int or item_id <= 0:
             raise AdapterPermanentError("Malformed SimpleX event item ID")
-        if self.inbox.contains(channel, item_id):
-            return
-        if event := self.codec.decode(info, row):
-            await self.ctx.admit_inbound(event, provenance)
+        if inbox.contains(channel, item_id):
+            return None
+        if event := codec.decode(info, row):
+            await ctx.admit_inbound(event, provenance)
         # If this write fails, core admission deduplicates the stable UUID
         # on retry. No admitted ID is recorded before successful admission.
         if checkpoint:
-            self.inbox.admitted(channel, item_id)
+            inbox.admitted(channel, item_id)
         return item_id
 
     async def _run(self) -> None:
-        pending = []
+        session = self.session
+        if session is None:
+            raise SessionError("SimpleX session is unavailable")
+        pending: list[Any] = []
         while True:
-            self.session.wake.clear()
+            session.wake.clear()
             try:
                 if not pending:
-                    pending = await self.session.call("events")
+                    pending = await session.call("events")
                     if not isinstance(pending, list):
                         raise AdapterPermanentError("Malformed SimpleX event batch")
                 while pending:
@@ -309,7 +351,7 @@ class SimplexChatAdapter(AdapterContract):
                 self.state = "healthy"
             except (SessionError, AdapterPermanentError):
                 self.state = "failed"
-                await self.session.stop()
+                await session.stop()
                 return
             except asyncio.CancelledError:
                 raise
@@ -318,17 +360,24 @@ class SimplexChatAdapter(AdapterContract):
                 self.state = "degraded"
             try:
                 await asyncio.wait_for(
-                    self.session.wake.wait(), self.config.poll_interval_seconds
+                    session.wake.wait(), self.config.poll_interval_seconds
                 )
             except TimeoutError:
                 pass
 
     async def deliver(self, result: RenderingResult) -> AdapterHandoffResult:
         kind, number, text = validate_payload(result, self.config)
+        # validate_payload admits only configured conversation channels, so
+        # the target is a concrete channel string from this point on.
+        channel = result.target_channel
+        if channel is None:
+            raise AdapterPermanentError("Unconfigured SimpleX conversation")
+        codec = self.codec
         if (
             self.state not in {"healthy", "degraded"}
             or self.session is None
             or self.ledger is None
+            or codec is None
         ):
             raise AdapterSendError("SimpleX adapter is not available")
         provenance = result.attempt_provenance
@@ -342,9 +391,7 @@ class SimplexChatAdapter(AdapterContract):
                 "SimpleX requires matching delivery attempt provenance"
             )
         try:
-            reserved, native_id = self.ledger.reserve(
-                provenance, result.target_channel, text
-            )
+            reserved, native_id = self.ledger.reserve(provenance, channel, text)
             if not reserved and native_id is None:
                 raise ValueError(
                     "SimpleX handoff outcome is uncertain; inspect the native profile before retrying"
@@ -375,7 +422,7 @@ class SimplexChatAdapter(AdapterContract):
                     or item.get("content", {}).get("msgContent", {}).get("text") != text
                 ):
                     raise ValueError("SimpleX native send identity or body differs")
-                native_id = self.codec.reference(result.target_channel, item_id)
+                native_id = codec.reference(channel, item_id)
                 self.ledger.accepted(provenance, native_id)
         except asyncio.CancelledError:
             # Cancellation after reserving may have reached the native queue.

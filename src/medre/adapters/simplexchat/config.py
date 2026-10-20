@@ -6,7 +6,7 @@ import math
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, TypeGuard
 
 from medre.config.identifiers import adapter_id_problem
 from medre.config.paths import MedrePaths
@@ -23,7 +23,7 @@ def conversation(value: str | None) -> tuple[str, int]:
     return ("group" if kind == "group" else "direct", int(number))
 
 
-def plain_text(value: object) -> bool:
+def plain_text(value: object) -> TypeGuard[str]:
     if not isinstance(value, str) or any(
         ord(char) < 32 and char not in "\n\r\t" for char in value
     ):
@@ -108,7 +108,7 @@ def prepare_config(
     routes: Iterable[Any],
 ) -> SimplexChatConfig:
     root = paths.adapter_transport_state_dir(adapter_id, "simplexchat")
-    changes = {}
+    changes: dict[str, Any] = {}
     for name, default in (
         ("database_prefix", root / "profile"),
         ("state_dir", root),

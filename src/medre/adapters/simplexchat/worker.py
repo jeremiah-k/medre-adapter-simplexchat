@@ -6,6 +6,7 @@ import asyncio
 import json
 import os
 import sys
+from typing import Any
 
 
 class NativeEvents:
@@ -13,10 +14,10 @@ class NativeEvents:
 
     def __init__(self, user_id: int, chats: list[str]) -> None:
         self.user_id, self.chats = user_id, frozenset(chats)
-        self.records: list[tuple[dict, int]] = []
+        self.records: list[tuple[dict[str, Any], int]] = []
         self.size = 0
 
-    def feed(self, event: dict) -> bool:
+    def feed(self, event: dict[str, Any]) -> bool:
         from .codec import chat_channel
 
         if event.get("type") != "newChatItems":
@@ -46,14 +47,14 @@ class NativeEvents:
             added = True
         return added
 
-    def take(self) -> list[dict]:
+    def take(self) -> list[dict[str, Any]]:
         rows = self.records[:32]
         del self.records[:32]
         self.size -= sum(size for _, size in rows)
         return [record for record, _ in rows]
 
 
-def emit(**data) -> None:
+def emit(**data: Any) -> None:
     print("SXRPC " + json.dumps(data, separators=(",", ":")), flush=True)
 
 
@@ -86,7 +87,7 @@ async def main() -> None:
             secondary = True
         emit(kind="ready", user_id=user["userId"] if user else None)
 
-        async def drain():
+        async def drain() -> None:
             nonlocal connected
 
             try:
@@ -122,7 +123,7 @@ async def main() -> None:
                             await api.send_chat_cmd("/_stop")
                             secondary = False
                         await api.start_chat()
-                        result = True
+                        result: object = True
                     elif operation == "history":
                         kind, number = args["chat_type"], args["chat_id"]
                         before = args.get("before")
