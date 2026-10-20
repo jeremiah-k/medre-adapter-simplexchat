@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime, timezone
+from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 from medre.core.events.canonical import CanonicalEvent, EventRelation, NativeRef
@@ -12,11 +13,11 @@ from medre.core.events.metadata import EventMetadata, NativeMetadata, TransportM
 from .config import SimplexChatConfig, plain_text
 
 
-def _mapping(value: object) -> Mapping:
+def _mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def chat_channel(info: Mapping) -> str | None:
+def chat_channel(info: Mapping[str, Any]) -> str | None:
     if not isinstance(info, Mapping):
         return None
     kind = info.get("type")
@@ -40,7 +41,9 @@ class SimplexChatCodec:
     def reference(self, channel: str, item_id: int) -> str:
         return f"{self.profile}:user:{self.config.user_id}:{channel}:item:{item_id}"
 
-    def decode(self, info: Mapping, item: Mapping) -> CanonicalEvent | None:
+    def decode(
+        self, info: Mapping[str, Any], item: Mapping[str, Any]
+    ) -> CanonicalEvent | None:
         if not isinstance(info, Mapping) or not isinstance(item, Mapping):
             return None
         channel = chat_channel(info)
@@ -102,7 +105,7 @@ class SimplexChatCodec:
             return None
         reference = self.reference(channel, item_id)
         quote = item.get("quotedItem")
-        relations = ()
+        relations: tuple[EventRelation, ...] = ()
         if (
             isinstance(quote, Mapping)
             and type(quote.get("itemId")) is int

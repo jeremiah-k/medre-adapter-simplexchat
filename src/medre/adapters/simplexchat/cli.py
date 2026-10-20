@@ -8,8 +8,10 @@ import getpass
 import json
 import math
 import sys
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from typing import Any
 
 from medre.config.paths import resolve
 
@@ -77,6 +79,8 @@ def selected_config(options: argparse.Namespace) -> SimplexChatConfig:
     if item is None:
         raise UsageError("The selected SimpleX adapter is absent from the config")
     config = item.config
+    if not isinstance(config, SimplexChatConfig):
+        raise UsageError("The selected SimpleX adapter is not a SimpleX configuration")
     changes = {
         name: getattr(options, name)
         for name in ("database_prefix", "user_id", "libs_dir")
@@ -102,7 +106,14 @@ def selected_config(options: argparse.Namespace) -> SimplexChatConfig:
         raise UsageError("Invalid SimpleX profile configuration") from None
 
 
-async def execute(options, config, *, session_factory=SimplexChatSession):
+async def execute(
+    options: argparse.Namespace,
+    config: SimplexChatConfig,
+    *,
+    session_factory: Callable[[SimplexChatConfig], SimplexChatSession] = (
+        SimplexChatSession
+    ),
+) -> dict[str, Any] | list[dict[str, Any]]:
     if options.command != "init" and not await asyncio.to_thread(
         Path(config.database_prefix + "_chat.db").is_file
     ):
@@ -119,7 +130,7 @@ async def execute(options, config, *, session_factory=SimplexChatSession):
         not math.isfinite(options.wait_seconds) or options.wait_seconds <= 0
     ):
         raise UsageError("--wait-seconds must be positive and finite")
-    link = None
+    link: str | None = None
     if options.command == "join":
         if options.link_stdin:
             link = sys.stdin.readline().strip()
