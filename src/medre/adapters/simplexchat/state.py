@@ -66,7 +66,16 @@ class HandoffLedger:
             ).fetchone()
             if row:
                 if row[0] != request:
-                    raise ValueError("SimpleX handoff provenance or content changed")
+                    # A completed native handoff is authoritative for this
+                    # exact attempt. A renderer upgrade may change its text,
+                    # but must never trigger a second send. Unresolved
+                    # reservations remain bound to their original bytes.
+                    if row[1] is None or (
+                        json.loads(row[0])[:2] != json.loads(request)[:2]
+                    ):
+                        raise ValueError(
+                            "SimpleX handoff provenance or content changed"
+                        )
                 return False, row[1]
             unresolved = self.db.execute(
                 "SELECT 1 FROM handoffs WHERE outbox=?",

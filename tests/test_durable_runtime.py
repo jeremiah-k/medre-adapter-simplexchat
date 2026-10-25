@@ -297,3 +297,29 @@ async def test_recovery_rereads_bounded_pages_in_oldest_first_order(config, cont
         assert all(args["count"] == 64 for args in pages)
     finally:
         await adapter.stop()
+
+
+def test_accepted_simplex_attempt_survives_renderer_upgrade_without_duplicate_send(
+    config,
+):
+    """Retained native acceptance wins over changed text for the same attempt."""
+    from pathlib import Path
+    from medre.adapters.simplexchat.state import HandoffLedger
+
+    ledger = HandoffLedger(Path(config.state_dir) / "upgrade-handoffs.sqlite")
+    try:
+        original = attempt()
+        assert ledger.reserve(original, "group:1", "old body") == (True, None)
+        # The result may have reached SimpleX before a renderer was upgraded.
+        with pytest.raises(ValueError, match="changed"):
+            ledger.reserve(original, "group:1", "new body")
+        ledger.accepted(original, "native:confirmed")
+        assert ledger.reserve(original, "group:1", "new body") == (
+            False,
+            "native:confirmed",
+        )
+        assert ledger.db.execute("SELECT COUNT(*) FROM handoffs").fetchone()[0] == 1
+        with pytest.raises(ValueError, match="changed"):
+            ledger.reserve(original, "contact:1", "new body")
+    finally:
+        ledger.close()
