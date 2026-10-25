@@ -231,8 +231,28 @@ async def test_renderer_respects_core_text_authority(config, payload, expected):
     event = SimplexChatCodec(config, "profile").decode(info(), item())
     event = msgspec.structs.replace(event, payload=payload)
     ctx = RenderingContext(
-        target_adapter="sx", target_channel="group:1",
-        target_platform="simplexchat", delivery_strategy="direct",
+        target_adapter="sx",
+        target_channel="group:1",
+        target_platform="simplexchat",
+        delivery_strategy="direct",
     )
     result = await SimplexChatRenderer({"sx": config}).render(event, ctx)
     assert result.payload["text"] == expected
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"body": "valid body", "text": 42},
+        {"body": 42, "text": "legacy"},
+        {"body": None, "text": "legacy", "formatting": {"version": 1, "spans": []}},
+    ],
+)
+async def test_malformed_canonical_text_never_becomes_native_content(config, payload):
+    """Do not stringify malformed content into a worker-owned native send."""
+    event = SimplexChatCodec(config, "profile").decode(info(), item())
+    event = msgspec.structs.replace(event, payload=payload)
+    with pytest.raises(ValueError, match="must be text"):
+        await SimplexChatRenderer({"sx": config}).render(
+            event, RenderingContext("direct", "sx", "group:1", "simplexchat")
+        )
