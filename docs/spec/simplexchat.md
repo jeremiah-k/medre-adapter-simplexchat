@@ -47,6 +47,13 @@ and exact text. Its local queue reference is not evidence of remote receipt.
 Exact confirmed attempts are idempotent. Uncertain outcomes or conflicting
 provenance MUST NOT cause automatic resubmission.
 
+The exact-text check refers to the bytes reserved before the first native send.
+A renderer upgrade MUST NOT rewrite an accepted reservation or trigger another
+native submission for the same provenance and conversation. Returning that
+retained native ID MUST identify the result as reuse of an earlier handoff; it
+MUST NOT claim that newly rendered text was submitted. An unconfirmed reservation
+remains bound to its original bytes and MUST NOT authorize automatic resending.
+
 ## Configuration and capabilities
 
 The configuration block schema describes fields nested below the adapter ID;

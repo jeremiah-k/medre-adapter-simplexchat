@@ -321,5 +321,32 @@ def test_accepted_simplex_attempt_survives_renderer_upgrade_without_duplicate_se
         assert ledger.db.execute("SELECT COUNT(*) FROM handoffs").fetchone()[0] == 1
         with pytest.raises(ValueError, match="changed"):
             ledger.reserve(original, "contact:1", "new body")
+        with pytest.raises(ValueError, match="changed"):
+            ledger.reserve(replace(original, source="retry"), "group:1", "new body")
     finally:
         ledger.close()
+
+
+async def test_reused_native_handoff_preserves_original_wire_request(config, context):
+    """Renderer changes cannot replace accepted bytes or manufacture another send."""
+    ctx, _ = context
+    session = NativeSession(config)
+    adapter = SimplexChatAdapter(config, session_factory=lambda _: session)
+    await adapter.start(ctx)
+    try:
+        old_payload = {"text": "old body", "chat_type": "group", "chat_id": 1}
+        first = await adapter.deliver(rendered(attempt(), payload=old_payload))
+        stored = adapter.ledger.db.execute("SELECT request FROM handoffs").fetchone()[0]
+        new_payload = {**old_payload, "text": "new body"}
+        reused = await adapter.deliver(rendered(attempt(), payload=new_payload))
+        assert reused.native_message_id == first.native_message_id
+        assert reused.confirmation_level == "local_queue"
+        assert "Reused" in reused.note
+        assert len(session.sent) == 1
+        assert session.sent[0]["text"] == "old body"
+        assert (
+            adapter.ledger.db.execute("SELECT request FROM handoffs").fetchone()[0]
+            == stored
+        )
+    finally:
+        await adapter.stop()
