@@ -210,3 +210,29 @@ def test_remote_labels_cannot_forge_attribution_lines(config, label):
         event.metadata.native.data["simplexchat"]["sender_label"]
         == event.source_transport_id
     )
+
+
+@pytest.mark.parametrize(
+    "payload,expected",
+    [
+        ({"body": "current", "text": "legacy"}, "legacy"),
+        (
+            {
+                "body": "current",
+                "text": "legacy",
+                "formatting": {"version": 1, "spans": []},
+            },
+            "current",
+        ),
+    ],
+)
+async def test_renderer_respects_core_text_authority(config, payload, expected):
+    """Preserve text aliases only when they do not shadow a styled body."""
+    event = SimplexChatCodec(config, "profile").decode(info(), item())
+    event = msgspec.structs.replace(event, payload=payload)
+    ctx = RenderingContext(
+        target_adapter="sx", target_channel="group:1",
+        target_platform="simplexchat", delivery_strategy="direct",
+    )
+    result = await SimplexChatRenderer({"sx": config}).render(event, ctx)
+    assert result.payload["text"] == expected
