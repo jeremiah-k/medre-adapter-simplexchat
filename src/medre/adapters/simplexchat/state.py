@@ -52,6 +52,12 @@ class HandoffLedger:
     def reserve(
         self, provenance: DeliveryAttemptProvenance, channel: str, text: str
     ) -> tuple[bool, str | None]:
+        """Reserve unsent bytes or recover the same attempt's accepted native fact.
+
+        Accepted provenance and destination stay immutable across rendering
+        upgrades. A reservation without native acceptance never authorizes a
+        second send, even when only the newly rendered text differs.
+        """
         import msgspec
 
         request = json.dumps(

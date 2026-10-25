@@ -444,7 +444,11 @@ class SimplexChatAdapter(AdapterContract):
             native_message_id=native_id,
             native_channel_id=result.target_channel,
             confirmation_level="local_queue",
-            note="Persisted in the native SimpleX queue; remote receipt is not inferred",
+            note=(
+                "Persisted in the native SimpleX queue; remote receipt is not inferred"
+                if reserved
+                else "Reused an earlier persisted native handoff; no new text was submitted"
+            ),
         )
 
     async def stop(self, timeout: float = 5.0) -> None:
