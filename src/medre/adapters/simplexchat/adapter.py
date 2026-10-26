@@ -452,6 +452,8 @@ class SimplexChatAdapter(AdapterContract):
         )
 
     async def stop(self, timeout: float = 5.0) -> None:
+        # Even cancellation of task gathering must not readmit native sends.
+        self.state = "failed"
         if self.task is not None:
             self.task.cancel()
             await asyncio.gather(self.task, return_exceptions=True)

@@ -121,12 +121,22 @@ async def test_shutdown_reaps_descendants_that_keep_stdout_open(
         await session.call("start")
         child = int((tmp_path / "child.pid").read_text())
         assert os.getpgid(child) == session.process.pid
-        await asyncio.wait_for(session.stop(), 5)
+        with pytest.raises(SessionError, match="process group"):
+            await asyncio.wait_for(session.stop(), 5)
         assert session.reader.done()
         assert session.process.returncode is not None
-        ProfileLease(config.database_prefix).close()
+        with pytest.raises(RuntimeError, match="owned"):
+            ProfileLease(config.database_prefix)
     finally:
-        await session.stop()
+        # Fixture cleanup kills the test-owned descendant by its known PID;
+        # production deliberately never signals a reused group leader PID.
+        if (tmp_path / "child.pid").exists():
+            try:
+                os.kill(int((tmp_path / "child.pid").read_text()), 9)
+            except ProcessLookupError:
+                pass
+        if session.lease is not None:
+            session.lease.close()
 
 
 async def test_shutdown_deadline_includes_stdin_backpressure(
@@ -159,6 +169,7 @@ async def test_reap_failure_retains_profile_until_confirmed_shutdown(
     session = SimplexChatSession(config)
     session.lease = ProfileLease(config.database_prefix)
     session.process = SimpleNamespace(
+        pid=999999999,
         returncode=None,
         stdin=SimpleNamespace(
             write=lambda _: None, drain=AsyncMock(), close=lambda: None

@@ -22,6 +22,7 @@ def controlled_session(config):
     session = SimplexChatSession(config)
     session.lease = ProfileLease(config.database_prefix)
     process = SimpleNamespace(
+        pid=999999999,
         returncode=None,
         stdin=SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock()),
         wait=AsyncMock(side_effect=TimeoutError),
@@ -92,9 +93,9 @@ async def test_concurrent_and_repeated_stop_do_not_signal_stale_process(
     await asyncio.gather(first, second)
     assert session.closed and session.lease is None
     assert process.stdin.write.call_count == 1
-    kills.assert_called_once()
+    kills.assert_not_called()
     await session.stop()
-    kills.assert_called_once()
+    kills.assert_not_called()
 
 
 async def test_adapter_preserves_failed_native_owner_for_cleanup_retry(config):
@@ -133,7 +134,109 @@ async def test_cleanup_retry_after_lease_error_does_not_signal_reaped_process(
         session.lease = lease
         await session.stop()
         assert session.closed
-        kills.assert_called_once()
+        kills.assert_not_called()
     finally:
         if lease is not None:
             lease.close()
+
+
+async def test_stop_waits_for_inflight_subprocess_creation(config, monkeypatch):
+    """A late spawn remains fenced until cleanup rather than appearing after stop."""
+    from medre.adapters.simplexchat import session as boundary
+
+    entered, release = asyncio.Event(), asyncio.Event()
+    worker = SimpleNamespace(
+        pid=999999999,
+        returncode=0,
+        stdout=None,
+        stdin=SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock()),
+        wait=AsyncMock(return_value=0),
+    )
+
+    async def delayed_spawn(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        return worker
+
+    monkeypatch.setattr(boundary.asyncio, "create_subprocess_exec", delayed_spawn)
+    session = SimplexChatSession(config)
+    startup = asyncio.create_task(session.start())
+    await entered.wait()
+    shutdown = asyncio.create_task(session.stop())
+    # Cancellation during the suspended spawn must not drop its process handle.
+    startup.cancel()
+    assert not shutdown.done()
+    release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await startup
+    await shutdown
+    assert session.process is worker
+    assert session.closed and session.lease is None
+    ProfileLease(config.database_prefix).close()
+
+
+async def test_exited_leader_with_live_descendant_keeps_profile(config, monkeypatch):
+    """Leader exit is not a proof that the worker's process group is empty."""
+    session, process = controlled_session(config)
+    process.returncode = 0
+    alive = True
+    kills = Mock()
+    monkeypatch.setattr(session, "_kill_owned", kills)
+    monkeypatch.setattr(session, "_owned_group_active", lambda _: alive)
+    with pytest.raises(SessionError, match="process group"):
+        await session.stop()
+    assert session.lease is not None and not session.closed
+    kills.assert_not_called()
+    with pytest.raises(RuntimeError, match="owned"):
+        ProfileLease(config.database_prefix)
+    alive = False
+    await session.stop()
+    kills.assert_not_called()
+    assert session.closed and session.lease is None
+    ProfileLease(config.database_prefix).close()
+
+
+async def test_adapter_cancelled_stop_fences_delivery_before_task_gather(
+    config,
+):
+    """Cancellation cannot leave a healthy adapter while shutdown is pending."""
+    adapter = SimplexChatAdapter(config)
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    async def poll():
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            entered.set()
+            await release.wait()
+
+    adapter.task = asyncio.create_task(poll())
+    adapter.state = "healthy"
+    session = SimpleNamespace(stop=AsyncMock())
+    adapter.session = session
+    await asyncio.sleep(0)
+    stopping = asyncio.create_task(adapter.stop())
+    await entered.wait()
+    stopping.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await stopping
+    assert adapter.state == "failed"
+    assert adapter.session is session
+    release.set()
+    await asyncio.gather(adapter.task, return_exceptions=True)
+    await adapter.stop()
+    assert adapter.session is None
+
+
+async def test_stop_before_start_prevents_late_worker(config, monkeypatch):
+    """A closed session cannot create a process with a released lease."""
+    from medre.adapters.simplexchat import session as boundary
+
+    spawn = Mock(side_effect=AssertionError("unexpected native spawn"))
+    monkeypatch.setattr(boundary.asyncio, "create_subprocess_exec", spawn)
+    session = SimplexChatSession(config)
+    await session.stop()
+    with pytest.raises(SessionError, match="cannot be reused"):
+        await session.start()
+    spawn.assert_not_called()
+    assert session.process is None and session.lease is None
