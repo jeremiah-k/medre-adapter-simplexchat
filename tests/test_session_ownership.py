@@ -240,3 +240,47 @@ async def test_stop_before_start_prevents_late_worker(config, monkeypatch):
         await session.start()
     spawn.assert_not_called()
     assert session.process is None and session.lease is None
+
+
+async def test_repeated_start_cancellation_retains_spawned_worker(config, monkeypatch):
+    """Repeated cancellation cannot release the lease before recording a late worker."""
+    from medre.adapters.simplexchat import session as boundary
+
+    entered, release, settling = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    worker = SimpleNamespace(
+        pid=999999999,
+        returncode=0,
+        stdout=None,
+        stdin=SimpleNamespace(write=Mock(), drain=AsyncMock(), close=Mock()),
+        wait=AsyncMock(return_value=0),
+    )
+
+    async def delayed_spawn(*args, **kwargs):
+        entered.set()
+        await release.wait()
+        return worker
+
+    shield = asyncio.shield
+    waits = 0
+
+    def observe_shield(task):
+        nonlocal waits
+        waits += 1
+        if waits == 2:
+            settling.set()
+        return shield(task)
+
+    monkeypatch.setattr(boundary.asyncio, "create_subprocess_exec", delayed_spawn)
+    monkeypatch.setattr(boundary.asyncio, "shield", observe_shield)
+    session = SimplexChatSession(config)
+    startup = asyncio.create_task(session.start())
+    await entered.wait()
+    startup.cancel()
+    await settling.wait()
+    startup.cancel()
+    release.set()
+    with pytest.raises(asyncio.CancelledError):
+        await startup
+    assert session.process is worker
+    assert session.closed and session.lease is None
+    ProfileLease(config.database_prefix).close()

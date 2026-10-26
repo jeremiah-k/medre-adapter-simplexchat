@@ -74,10 +74,16 @@ class SimplexChatSession:
                 )
                 try:
                     process = await asyncio.shield(spawning)
-                except BaseException:
-                    # A cancelled subprocess creation may still spawn a worker.
-                    # Retain its handle before any cleanup releases the lease.
-                    self.process = await asyncio.shield(spawning)
+                except asyncio.CancelledError:
+                    # Repeated cancellation must not abandon a worker whose
+                    # creation still owns the profile. Keep startup serialized
+                    # until its handle can be recorded, then propagate cancellation.
+                    while not spawning.done():
+                        try:
+                            await asyncio.shield(spawning)
+                        except asyncio.CancelledError:
+                            continue
+                    self.process = spawning.result()
                     raise
                 self.process = process
                 self.reader = asyncio.create_task(self._read())
