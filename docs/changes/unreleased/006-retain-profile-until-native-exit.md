@@ -3,7 +3,10 @@
 Keep the profile lease and owned session when native process reaping times out
 or cleanup is cancelled. Refuse native calls during shutdown, serialize
 concurrent stop requests and permit a bounded cleanup retry. Completed cleanup
-is idempotent and does not signal a stale process identifier. The adapter
+is idempotent and does not signal a stale process identifier. Serialize
+startup with shutdown; after a POSIX leader exits, retain the profile lease
+while its process group remains active. A cancelled task gather fences new
+adapter calls before it can abandon cleanup. The adapter
 reports failed health while preserving its session reference for cleanup.
 
 Accepted and uncertain handoff ledger records are retained. Package version,

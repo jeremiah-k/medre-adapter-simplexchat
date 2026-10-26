@@ -229,3 +229,32 @@ def test_main_module_is_safe_to_import(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert not captured.out
     assert not captured.err
+
+
+async def test_cli_failed_cleanup_retains_native_profile_lease(config):
+    """An unfinished CLI cleanup cannot discard its native-owner reference."""
+    from medre.adapters.simplexchat.session import SessionError
+    from medre.adapters.simplexchat.state import ProfileLease
+
+    class Unreaped(Profile):
+        def __init__(self, config):
+            super().__init__(config)
+            self.lease = ProfileLease(config.database_prefix)
+
+        async def stop(self):
+            raise SessionError("native worker has not exited")
+
+    session = Unreaped(config)
+    try:
+        with pytest.raises(SessionError, match="not exited"):
+            await cli.execute(
+                cli.parser().parse_args(["init", "--name", "Bridge"]),
+                config,
+                session_factory=lambda _: session,
+            )
+        assert session in cli._UNREAPED_SESSIONS
+        with pytest.raises(RuntimeError, match="owned"):
+            ProfileLease(config.database_prefix)
+    finally:
+        session.lease.close()
+        cli._UNREAPED_SESSIONS.discard(session)

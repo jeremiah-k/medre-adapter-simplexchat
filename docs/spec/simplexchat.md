@@ -9,8 +9,13 @@ profile CLI creates an identity. The configured active user MUST match the nativ
 active user. Runtime discovery and SDK-free fakes MUST NOT initialize libsimplex.
 
 Shutdown bounds the close request, stdin drain, process reap, and stdout drain.
-Native descendants that inherit stdout MUST NOT keep the adapter alive after its
-owner exits. Timeout and cancellation retain uncertain outbound claims.
+POSIX native descendants that remain in the worker's process group MUST keep
+profile ownership fenced after its leader exits. A reaped leader's numeric PID
+MUST NOT be signalled again: that PID may have been reused by an unrelated
+group. Failed descendant cleanup is reported for an explicit retry instead
+of releasing the lease. Startup and shutdown MUST serialize the subprocess
+creation boundary; a cancelled spawn cannot leave a worker without a lease.
+Timeout and cancellation retain uncertain outbound claims.
 
 ## Conversations and ingress
 
@@ -64,7 +69,8 @@ Peer display names used for relay attribution must be printable on one line;
 invalid labels fall back to the scoped sender identity. Shutdown releases profile
 ownership only after its owned process is confirmed reaped. Failed or cancelled
 cleanup MUST retain the lease and session reference, refuse further native calls,
-and permit a serialized cleanup retry. Concurrent stops MUST share one cleanup
+and permit a serialized cleanup retry. A cancelled adapter task gather MUST
+mark health failed before admitting further calls. Concurrent stops MUST share one cleanup
 owner; a completed stop MUST NOT signal a stale process identifier. Adapter
 health MUST report failed when native shutdown remains incomplete. Restarting with the
 same handoff ledger preserves accepted native message IDs without resubmission.

@@ -106,6 +106,12 @@ def selected_config(options: argparse.Namespace) -> SimplexChatConfig:
         raise UsageError("Invalid SimpleX profile configuration") from None
 
 
+# An unfinished CLI cleanup must not let Python collect its active profile
+# lease while the interpreter remains alive. This is not a cross-process
+# guardian if the CLI process itself is terminated.
+_UNREAPED_SESSIONS: set[SimplexChatSession] = set()
+
+
 async def execute(
     options: argparse.Namespace,
     config: SimplexChatConfig,
@@ -202,7 +208,13 @@ async def execute(
             "action": "Inspect groups and contacts to select an active conversation. A connected contact does not prove group membership.",
         }
     finally:
-        await session.stop()
+        try:
+            await session.stop()
+        except BaseException:
+            _UNREAPED_SESSIONS.add(session)
+            raise
+        else:
+            _UNREAPED_SESSIONS.discard(session)
 
 
 def _display(value: object) -> str:
