@@ -150,7 +150,9 @@ async def test_shutdown_deadline_includes_stdin_backpressure(
         await asyncio.gather(request, return_exceptions=True)
 
 
-async def test_reap_failure_still_releases_profile(config, monkeypatch):
+async def test_reap_failure_retains_profile_until_confirmed_shutdown(
+    config, monkeypatch
+):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
@@ -166,6 +168,11 @@ async def test_reap_failure_still_releases_profile(config, monkeypatch):
     monkeypatch.setattr(session, "_kill_owned", lambda: None)
     with pytest.raises(TimeoutError):
         await session.stop()
-    assert session.lease is None
-    assert session.failed
+    assert session.lease is not None
+    assert session.failed and not session.closed
+    with pytest.raises(RuntimeError, match="owned"):
+        ProfileLease(config.database_prefix)
+    session.process.returncode = 0
+    await session.stop()
+    assert session.lease is None and session.closed
     ProfileLease(config.database_prefix).close()
