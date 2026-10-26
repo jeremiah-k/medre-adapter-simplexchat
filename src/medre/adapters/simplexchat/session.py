@@ -70,6 +70,12 @@ class SimplexChatSession:
                         env=environment,
                         limit=4 * 1024 * 1024,
                         start_new_session=sys.platform != "win32",
+                        pass_fds=(
+                            (self.lease.guard_fd,)
+                            if self.lease is not None
+                            and self.lease.guard_fd is not None
+                            else ()
+                        ),
                     )
                 )
                 try:
