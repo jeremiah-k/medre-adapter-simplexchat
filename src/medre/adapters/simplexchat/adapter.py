@@ -453,7 +453,11 @@ class SimplexChatAdapter(AdapterContract):
             await asyncio.gather(self.task, return_exceptions=True)
             self.task = None
         if self.session is not None:
-            await self.session.stop()
+            try:
+                await self.session.stop()
+            except BaseException:
+                self.state = "failed"
+                raise
             self.session = None
         if self.inbox is not None:
             self.inbox.close()

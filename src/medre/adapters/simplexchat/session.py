@@ -36,6 +36,9 @@ class SimplexChatSession:
         self.pending: dict[str, asyncio.Future[Any]] = {}
         self.wake = asyncio.Event()
         self.lock = asyncio.Lock()
+        self.stop_lock = asyncio.Lock()
+        self.closed = False
+        self._native_reaped = False
         self.failed = False
         self.used = False
 
@@ -179,9 +182,23 @@ class SimplexChatSession:
                 pass
 
     async def stop(self) -> None:
+        """Serialize cleanup and retain ownership until the native worker is reaped.
+
+        Failed or interrupted cleanup leaves the profile fenced for another stop
+        attempt. Closed sessions never signal a stale, potentially reused PID.
+        """
+        async with self.stop_lock:
+            if self.closed:
+                return
+            self.failed = True
+            await self._stop_owned()
+
+    async def _stop_owned(self) -> None:
+        """Bound one cleanup attempt without releasing a possibly live native owner."""
         process = self.process
+        reaped = process is None or self._native_reaped
         try:
-            if process is not None:
+            if process is not None and not self._native_reaped:
                 if process.returncode is None:
                     stdin = process.stdin
                     if stdin is None:
@@ -207,10 +224,12 @@ class SimplexChatSession:
                         await asyncio.wait_for(self.reader, _DRAIN_TIMEOUT)
         finally:
             try:
-                if process is not None:
+                if process is not None and not self._native_reaped:
                     self._kill_owned()
                     if process.returncode is None:
                         await asyncio.wait_for(process.wait(), _DRAIN_TIMEOUT)
+                    reaped = process.returncode is not None
+                    self._native_reaped = reaped
             finally:
                 if self.reader is not None and not self.reader.done():
                     self.reader.cancel()
@@ -220,9 +239,10 @@ class SimplexChatSession:
                     and not self.ready.cancelled()
                 ):
                     self.ready.exception()
-                if self.lease is not None:
-                    self.lease.close()
-                    self.lease = None
-                self.failed = True
                 if self.reader is not None:
                     await asyncio.gather(self.reader, return_exceptions=True)
+                if reaped:
+                    if self.lease is not None:
+                        self.lease.close()
+                        self.lease = None
+                    self.closed = True

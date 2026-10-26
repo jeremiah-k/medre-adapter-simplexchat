@@ -62,5 +62,9 @@ extend a native platform's encryption guarantee across other transports.
 
 Peer display names used for relay attribution must be printable on one line;
 invalid labels fall back to the scoped sender identity. Shutdown releases profile
-ownership even when process reaping exceeds its deadline. Restarting with the
+ownership only after its owned process is confirmed reaped. Failed or cancelled
+cleanup MUST retain the lease and session reference, refuse further native calls,
+and permit a serialized cleanup retry. Concurrent stops MUST share one cleanup
+owner; a completed stop MUST NOT signal a stale process identifier. Adapter
+health MUST report failed when native shutdown remains incomplete. Restarting with the
 same handoff ledger preserves accepted native message IDs without resubmission.
