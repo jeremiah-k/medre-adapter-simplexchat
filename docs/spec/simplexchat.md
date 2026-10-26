@@ -77,7 +77,17 @@ invalid labels fall back to the scoped sender identity. Shutdown releases profil
 ownership only after its owned process is confirmed reaped. Failed or cancelled
 cleanup MUST retain the lease and session reference, refuse further native calls,
 and permit a serialized cleanup retry. A cancelled adapter task gather MUST
-mark health failed before admitting further calls. Concurrent stops MUST share one cleanup
-owner; a completed stop MUST NOT signal a stale process identifier. Adapter
-health MUST report failed when native shutdown remains incomplete. Restarting with the
-same handoff ledger preserves accepted native message IDs without resubmission.
+mark health failed before admitting further calls. Concurrent stops MUST share
+one cleanup owner; a completed stop MUST NOT signal a stale process identifier.
+Startup and shutdown MUST serialize ownership changes, including repeated
+cancellation while subprocess creation is pending. On POSIX, an exited leader
+MUST NOT be signalled through its retained process-group ID; a surviving group
+MUST keep the profile fenced. Adapter health MUST report failed when native
+shutdown remains incomplete. Restarting with the same handoff ledger preserves
+accepted native message IDs without resubmission.
+
+Failed CLI cleanup retains a strong session reference while the Python owner
+remains alive. This does not qualify ownership isolation across parent-process
+exit or forced termination: the operating-system lease cannot outlive its
+owning process. Independent native supervision is required before claiming that
+boundary.
