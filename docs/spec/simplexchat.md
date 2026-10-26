@@ -87,7 +87,35 @@ shutdown remains incomplete. Restarting with the same handoff ledger preserves
 accepted native message IDs without resubmission.
 
 Failed CLI cleanup retains a strong session reference while the Python owner
-remains alive. This does not qualify ownership isolation across parent-process
-exit or forced termination: the operating-system lease cannot outlive its
-owning process. Independent native supervision is required before claiming that
-boundary.
+remains alive. On non-Linux systems, process termination can still release the
+profile lease before a surviving native descendant exits. Linux additionally
+uses the inherited file-description guard described below. The guard protects
+only workers that retain its descriptor; independent descendants that close it
+still require separate qualification.
+
+## Linux owner death and stopped-state inventory
+
+On Linux the profile owner also holds a `flock` guard file at
+`database_prefix + ".medre-owner.lock"`, and passes the guarded file descriptor
+into the native worker. Release MUST close the owner's descriptor without
+`LOCK_UN`; explicitly unlocking a shared file description would also revoke the
+worker's fencing. The kernel retains the lock until the last holder closes it.
+A surviving native worker therefore retains the file
+lock even if the Python bridge terminates abruptly and SQLite's owner
+transaction is released. A new MEDRE owner checks the same guard before
+opening the native profile. Do not unlink or replace the lock file while
+any native owner may be running. This protects the native worker process; an
+SDK that independently spawns descendants and closes the inherited descriptor
+still requires separate process-tree qualification. Other operating systems
+retain the existing SQLite lease semantics without this Linux guarantee.
+
+A stopped-state inventory must include both adapter-owned `handoffs.sqlite`
+and `inbox.sqlite` in `state_dir`, the owner database at
+`database_prefix + ".medre-owner.sqlite"`, the Linux guard file when present,
+and **all** official SDK profile databases and identity-bearing files derived
+from the installed SDK's `database_prefix`. The configured
+`native_cache_dir` is the worker's `XDG_CACHE_HOME`; determine whether it
+contains persistent identity material for that SDK version before omitting it.
+Do not infer native database filenames or claim a coherent restore from only
+the MEDRE ledgers. Stop the bridge and confirm its native process tree exited
+before capture or restore; saved lock-file bytes do not transfer a live lock.
