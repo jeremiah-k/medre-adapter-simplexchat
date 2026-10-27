@@ -140,3 +140,12 @@ Startup and shutdown errors MUST propagate to the runtime lifecycle owner.
 Native reporting MUST remain fenced during failed shutdown, and retained failed
 health MUST remain available to explicit inspection. Reporting a lifecycle error
 MUST NOT reopen a retired native callback lifetime or admit further sends.
+
+## Stopped-state declarations
+
+The plaintext-profile declaration MUST select both native databases, the
+namespace database, handoff and inbox ledgers, and the profile guard inode.
+Retained lock bytes MUST NOT be treated as live exclusion after restore.
+An encrypted profile MUST refuse automatic planning until a coherent provider
+export can preserve both its native identity and adapter journals. Reporting
+zero files as a successful complete profile capture is not supported.
