@@ -119,3 +119,24 @@ contains persistent identity material for that SDK version before omitting it.
 Do not infer native database filenames or claim a coherent restore from only
 the MEDRE ledgers. Stop the bridge and confirm its native process tree exited
 before capture or restore; saved lock-file bytes do not transfer a live lock.
+
+## Native health notifications
+
+The provider MUST use the same retained native state for health probes and the
+optional `AdapterContext.report_health` sink. Reports MUST describe settled
+`healthy`, `degraded` or `failed` observations for the bound adapter. Startup and
+stop MUST delimit the reporting lifetime; retired callbacks MUST NOT publish
+for a replacement. Observer exceptions MUST NOT interrupt native operations,
+release ownership, create receipts or authorize another send. Contexts without
+the sink retain explicit-probe compatibility.
+
+Successful local profile/event access establishes healthy native-owner state.
+Admission failure MUST report degradation while retaining its existing retry
+and native evidence. Native worker/profile failure MUST report failed health
+without claiming profile ownership was released. Contact and group recipient
+reachability MUST NOT be inferred from local profile liveness.
+
+Startup and shutdown errors MUST propagate to the runtime lifecycle owner.
+Native reporting MUST remain fenced during failed shutdown, and retained failed
+health MUST remain available to explicit inspection. Reporting a lifecycle error
+MUST NOT reopen a retired native callback lifetime or admit further sends.
