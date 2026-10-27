@@ -21,6 +21,9 @@ def adapter_spec() -> AdapterSpec:
         versioned_namespace_reader=SymbolRef(module + ".metadata", "versioned"),
         attribution_projector=SymbolRef(module + ".metadata", "project_attribution"),
         sample_config=SymbolRef(module + ".sample", "sample_config"),
+        stopped_state_declaration=SymbolRef(
+            module + ".stopped_declaration", "declaration"
+        ),
         support_endpoint_fields=("user_id", "chats"),
         support_secret_fields=(
             "database_prefix",
