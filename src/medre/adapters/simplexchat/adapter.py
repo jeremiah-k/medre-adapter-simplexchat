@@ -97,6 +97,9 @@ class SimplexChatAdapter(AdapterContract):
         self.channels = set(config.chats)
         self.inbox: InboxLedger | None = None
         self.state = "unknown"
+        self._health_epoch = 0
+        self._health_active = False
+        self._reported_health: str | None = None
         self.admission_failures = 0
 
     async def start(self, ctx: AdapterContext) -> None:
@@ -123,9 +126,13 @@ class SimplexChatAdapter(AdapterContract):
             )
         if ctx.adapter_id != self.adapter_id:
             raise AdapterPermanentError("SimpleX context adapter identity differs")
+        self._health_epoch += 1
+        health_epoch = self._health_epoch
+        self._health_active = False
+        self._reported_health = None
         self.ctx = ctx
         self._mark_started(ctx)
-        self.state = "starting"
+        self._set_state("starting")
         session = self.session_factory(self.config)
         self.session = session
         try:
@@ -205,11 +212,15 @@ class SimplexChatAdapter(AdapterContract):
                 inbox.initialize(channel)
                 await self._checkpoint(channel)
             await session.call("start")
-            self.state = "healthy"
+            self._health_active = True
+            self._set_state("healthy")
             self.task = asyncio.create_task(self._run())
+            self.task.add_done_callback(
+                lambda task: self._native_task_done(task, health_epoch)
+            )
         except BaseException:
             await self.stop()
-            self.state = "failed"
+            self._set_state("failed")
             raise
 
     def _stream(self, channel: str) -> str:
@@ -327,6 +338,7 @@ class SimplexChatAdapter(AdapterContract):
         return item_id
 
     async def _run(self) -> None:
+        epoch = self._health_epoch
         session = self.session
         if session is None:
             raise SessionError("SimpleX session is unavailable")
@@ -348,16 +360,18 @@ class SimplexChatAdapter(AdapterContract):
                         raise AdapterPermanentError("Malformed SimpleX event record")
                     await self._ingest(record["chatInfo"], record["chatItem"], "live")
                     pending.pop(0)
-                self.state = "healthy"
+                self._set_state("healthy", epoch=epoch)
             except (SessionError, AdapterPermanentError):
-                self.state = "failed"
+                self._set_state("failed", epoch=epoch)
                 await session.stop()
                 return
             except asyncio.CancelledError:
+                if self._health_active:
+                    self._set_state("failed", epoch=epoch)
                 raise
             except Exception:
                 self.admission_failures += 1
-                self.state = "degraded"
+                self._set_state("degraded", epoch=epoch)
             try:
                 await asyncio.wait_for(
                     session.wake.wait(), self.config.poll_interval_seconds
@@ -452,8 +466,11 @@ class SimplexChatAdapter(AdapterContract):
         )
 
     async def stop(self, timeout: float = 5.0) -> None:
+        self._health_active = False
+        self._health_epoch += 1
+        self._reported_health = None
         # Even cancellation of task gathering must not readmit native sends.
-        self.state = "failed"
+        self._set_state("failed")
         if self.task is not None:
             self.task.cancel()
             await asyncio.gather(self.task, return_exceptions=True)
@@ -462,7 +479,7 @@ class SimplexChatAdapter(AdapterContract):
             try:
                 await self.session.stop()
             except BaseException:
-                self.state = "failed"
+                self._set_state("failed")
                 raise
             self.session = None
         if self.inbox is not None:
@@ -471,9 +488,43 @@ class SimplexChatAdapter(AdapterContract):
         if self.ledger is not None:
             self.ledger.close()
             self.ledger = None
-        self.state = "unknown"
+        self._set_state("unknown")
+
+    def _native_task_done(self, task: asyncio.Task[None], epoch: int) -> None:
+        """Observe unexpected native-owner exit, including cancellation before first execution."""
+        if not self._health_active or epoch != self._health_epoch:
+            return
+        if task.cancelled() or task.exception() is not None:
+            self._set_state("failed", epoch=epoch)
+
+    def _set_state(self, state: str, *, epoch: int | None = None) -> None:
+        """Publish existing native-owner observations without adding polling or send authority."""
+        if epoch is not None and epoch != self._health_epoch:
+            return
+        self.state = state
+        if (
+            not self._health_active
+            or self.ctx is None
+            or state not in {"healthy", "degraded", "failed"}
+        ):
+            return
+        report = getattr(self.ctx, "report_health", None)
+        if report is None or self._reported_health == state:
+            return
+        try:
+            report(self._health_info())
+            self._reported_health = state
+        except Exception as exc:
+            self.ctx.logger.warning(
+                "simplexchat health notification failed (%s)", type(exc).__name__
+            )
 
     async def health_check(self) -> AdapterInfo:
+        """Read the native owner's retained local health without another native call."""
+        return self._health_info()
+
+    def _health_info(self) -> AdapterInfo:
+        """Use the same native-owner state for explicit probes and reports."""
         return AdapterInfo(
             self.adapter_id,
             self.platform,
