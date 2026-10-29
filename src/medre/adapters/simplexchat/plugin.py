@@ -24,6 +24,12 @@ def adapter_spec() -> AdapterSpec:
         stopped_state_declaration=SymbolRef(
             module + ".stopped_declaration", "declaration"
         ),
+        cli_register=SymbolRef(
+            "medre.adapters.simplexchat.cli_contrib", "register_cli"
+        ),
+        cli_dispatch=SymbolRef(
+            "medre.adapters.simplexchat.cli_contrib", "dispatch_cli"
+        ),
         support_endpoint_fields=("user_id", "chats"),
         support_secret_fields=(
             "database_prefix",

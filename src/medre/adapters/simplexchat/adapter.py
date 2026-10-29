@@ -8,6 +8,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 
+from medre.core.supervision.diagnostic_contract import COMMON_DIAGNOSTIC_KEYS
+
 from medre.core.contracts.adapter import (
     AdapterCapabilities,
     AdapterContext,
@@ -122,7 +124,7 @@ class SimplexChatAdapter(AdapterContract):
             Path(self.config.database_prefix + "_chat.db").is_file
         ):
             raise AdapterPermanentError(
-                "SimpleX profile is missing; run medre-simplexchat init explicitly"
+                "SimpleX profile is missing; run medre adapter simplexchat init explicitly"
             )
         if ctx.adapter_id != self.adapter_id:
             raise AdapterPermanentError("SimpleX context adapter identity differs")
@@ -535,9 +537,12 @@ class SimplexChatAdapter(AdapterContract):
         )
 
     def diagnostics(self) -> dict[str, object]:
+        """Expose retained health and explicit unknowns without native I/O."""
         return {
-            "adapter_id": self.adapter_id,
+            **dict.fromkeys(sorted(COMMON_DIAGNOSTIC_KEYS)),
             "health": self.state,
+            "mode": "live",
+            "adapter_id": self.adapter_id,
             "health_scope": "native_profile",
             "peer_reachability": "not_inferred",
             "configured_conversations": len(self.config.chats),

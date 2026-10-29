@@ -149,3 +149,23 @@ Retained lock bytes MUST NOT be treated as live exclusion after restore.
 An encrypted profile MUST refuse automatic planning until a coherent provider
 export can preserve both its native identity and adapter journals. Reporting
 zero files as a successful complete profile capture is not supported.
+
+## Operator command namespace
+
+The provider MUST contribute its profile commands under `medre adapter simplexchat`
+through MEDRE's isolated CLI registration and dispatch hooks. Generic help MUST
+remain SDK-free and MUST NOT open a native profile. The standalone
+`medre-simplexchat` entry point MUST use the same parser definitions and execution
+policy. Both paths MUST retain exit status, hidden secret input, profile locks,
+native cleanup, and configuration/environment selection. Provisioning remains
+an explicit operator action; runtime startup MUST NOT create an identity.
+
+## Common diagnostic projection
+
+Native and SDK-free adapters MUST expose the core common diagnostic keys.
+`health` MUST match the same retained observation returned by `health_check`;
+`mode` MUST distinguish `live` from `fake`. Legacy provider-specific keys MUST
+remain available. Unobserved connection state, uncounted delivery failures,
+and unavailable reconnect/error details MUST remain `None`, rather than
+fabricated success, zero counts or inferred remote reachability. Cumulative
+`reconnects` MUST NOT be relabeled as consecutive `reconnect_attempts`.

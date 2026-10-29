@@ -23,12 +23,17 @@ The SDK supports Linux, macOS and Windows on its published architectures; CI
 qualifies Linux x86-64. This adapter's code is MIT licensed. The official SDK and
 native library carry their own AGPL-3.0 license.
 
+For a persistent MEDRE tool installation, `medre adapters install simplexchat`
+adds the provider to the same environment. Use `medre adapter simplexchat` for
+profile commands. The standalone `medre-simplexchat` entry point remains
+available in activated project environments with the same arguments.
+
 ## Create a dedicated profile
 
 ```bash
-uv run --locked medre-simplexchat init --adapter sx --name 'MEDRE bridge'
-uv run --locked medre-simplexchat join --adapter sx
-uv run --locked medre-simplexchat groups --adapter sx --json
+uv run --locked medre adapter simplexchat init --adapter sx --name 'MEDRE bridge'
+uv run --locked medre adapter simplexchat join --adapter sx
+uv run --locked medre adapter simplexchat groups --adapter sx --json
 ```
 
 `join` prompts for a private contact or group connection link without echoing it.
