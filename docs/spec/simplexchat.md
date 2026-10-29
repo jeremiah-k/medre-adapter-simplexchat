@@ -209,3 +209,7 @@ queue acceptance does not prove an independently observed recipient quote.
 
 `replies` MUST remain `fallback` until independent peer qualification,
 including native quote rendering, profile restart and ambiguous submission.
+
+Use the [native peer qualification guide](../qualification/native-quoted-replies.md)
+to prepare revision-bound recipient observations. Its metadata checker does not
+replace independent native proof or promote the reply capability.
