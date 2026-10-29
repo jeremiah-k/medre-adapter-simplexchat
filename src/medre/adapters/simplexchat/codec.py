@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+import re
 from datetime import datetime, timezone
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
@@ -40,6 +41,21 @@ class SimplexChatCodec:
 
     def reference(self, channel: str, item_id: int) -> str:
         return f"{self.profile}:user:{self.config.user_id}:{channel}:item:{item_id}"
+
+    def quote_item_id(self, channel: str, native_ref: str) -> int | None:
+        """Parse one current-profile, current-user, current-chat native reference.
+
+        The prefix comes from the active profile lease, never from a caller's
+        claim. Do not accept lookalike IDs, leading zeros or another chat.
+        """
+        prefix = f"{self.profile}:user:{self.config.user_id}:{channel}:item:"
+        if not isinstance(native_ref, str) or not native_ref.startswith(prefix):
+            return None
+        value = native_ref[len(prefix) :]
+        if not re.fullmatch(r"[1-9][0-9]{0,18}", value):
+            return None
+        item_id = int(value)
+        return item_id if item_id <= 2**63 - 1 else None
 
     def decode(
         self, info: Mapping[str, Any], item: Mapping[str, Any]
