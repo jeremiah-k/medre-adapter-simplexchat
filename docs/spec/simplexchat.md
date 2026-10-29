@@ -169,3 +169,18 @@ remain available. Unobserved connection state, uncounted delivery failures,
 and unavailable reconnect/error details MUST remain `None`, rather than
 fabricated success, zero counts or inferred remote reachability. Cumulative
 `reconnects` MUST NOT be relabeled as consecutive `reconnect_attempts`.
+
+## Native quote qualification boundary
+
+The pinned official SDK exposes `api_send_text_message(..., in_reply_to=ID)`
+which serializes `quotedItemId` into a composed message. Contract tests also
+exercise `api_send_messages` through native command serialization for direct
+and group chat references. This is an SDK shape fact, not permission to use an untrusted canonical ID as a native item ID.
+MEDRE's current worker sends plain text without a quote carrier; its handoff
+ledger binds only attempt, channel and body. Reply capability MUST remain
+`fallback` until an implementation binds a profile- and channel-scoped native
+reference into that durable reservation and validates the quote against the
+selected conversation immediately before native submission. Stale, absent,
+cross-chat, or cross-profile targets MUST retain readable fallback, never
+switch to an unrelated local item. A crash after invoking the native API
+MUST NOT cause a second send without independent proof of non-acceptance.
