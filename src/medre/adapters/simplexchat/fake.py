@@ -6,6 +6,8 @@ from uuid import uuid4
 
 import msgspec
 
+from medre.core.supervision.diagnostic_contract import COMMON_DIAGNOSTIC_KEYS
+
 from medre.core.contracts.adapter import (
     AdapterContext,
     AdapterHandoffResult,
@@ -58,9 +60,12 @@ class FakeSimplexChatAdapter(SimplexChatAdapter):
         )
 
     def diagnostics(self) -> dict[str, object]:
+        """Expose retained health and explicit unknowns without native I/O."""
         return {
-            "fake": True,
+            **dict.fromkeys(sorted(COMMON_DIAGNOSTIC_KEYS)),
             "health": self.state,
+            "mode": "fake",
+            "fake": True,
             "delivered": len(self.delivered_payloads),
         }
 
