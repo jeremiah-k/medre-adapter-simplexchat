@@ -88,17 +88,59 @@ class SimplexChatRenderer:
             ctx.max_text_chars is not None and len(text) > ctx.max_text_chars
         ):
             raise ValueError("Rendered SimplexChat text exceeds the destination budget")
+        payload: dict[str, Any] = {
+            "text": text,
+            "chat_type": destination[0],
+            "chat_id": destination[1],
+        }
+        reply_fallback = False
+        replies = [
+            relation
+            for relation in event.relations
+            if relation.relation_type == "reply"
+        ]
+        if replies and not fallback:
+            fallback_body = prefix.rendered_prefix + degrade_relations_inline(
+                event, select_message_body(event.payload)
+            )
+            if (
+                not plain_text(fallback_body)
+                or not fallback_body.strip()
+                or len(fallback_body.encode("utf-8")) > min(limits)
+                or (
+                    ctx.max_text_chars is not None
+                    and len(fallback_body) > ctx.max_text_chars
+                )
+            ):
+                raise ValueError(
+                    "SimpleX reply fallback exceeds the destination budget"
+                )
+            fact = replies[0].target_fact if len(replies) == 1 else None
+            if (
+                fact is not None
+                and fact.status == "bound"
+                and fact.adapter == ctx.target_adapter
+                and fact.native_channel_id == ctx.target_channel
+                and plain_text(fact.native_message_id)
+                and fact.native_message_id
+                and replies[0].target_event_id
+            ):
+                payload["reply_native_ref"] = fact.native_message_id
+                payload["reply_fallback_text"] = fallback_body
+            else:
+                payload["text"] = fallback_body
+                reply_fallback = True
         return RenderingResult(
             event_id=event.event_id,
             target_adapter=ctx.target_adapter,
             target_channel=ctx.target_channel,
-            payload={
-                "text": text,
-                "chat_type": destination[0],
-                "chat_id": destination[1],
-            },
+            payload=payload,
             metadata={"simplexchat": {"format": "plain", "attribution": "relay"}},
-            fallback_applied="strategy_fallback_text" if fallback else None,
+            fallback_applied=(
+                "strategy_fallback_text"
+                if fallback
+                else "relation_reply" if reply_fallback else None
+            ),
         )
 
 

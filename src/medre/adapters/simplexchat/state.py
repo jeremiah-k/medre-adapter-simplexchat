@@ -103,7 +103,13 @@ class HandoffLedger:
         )
 
     def reserve(
-        self, provenance: DeliveryAttemptProvenance, channel: str, text: str
+        self,
+        provenance: DeliveryAttemptProvenance,
+        channel: str,
+        text: str,
+        *,
+        reply_ref: str | None = None,
+        fallback_text: str | None = None,
     ) -> tuple[bool, str | None]:
         """Reserve unsent bytes or recover the same attempt's accepted native fact.
 
@@ -113,8 +119,16 @@ class HandoffLedger:
         """
         import msgspec
 
+        # Legacy three-field entries remain byte-identical for ordinary text.
+        # Native quotes bind target identity and fallback in the same sealed
+        # request as channel and provenance, before any native command bytes.
+        if (reply_ref is None) != (fallback_text is None):
+            raise ValueError("SimpleX quote reference and fallback must be paired")
+        fields = [msgspec.to_builtins(provenance), channel, text]
+        if reply_ref is not None:
+            fields.extend((reply_ref, fallback_text))
         request = json.dumps(
-            [msgspec.to_builtins(provenance), channel, text],
+            fields,
             sort_keys=True,
             separators=(",", ":"),
         )
@@ -129,8 +143,11 @@ class HandoffLedger:
                     # exact attempt. A renderer upgrade may change its text,
                     # but must never trigger a second send. Unresolved
                     # reservations remain bound to their original bytes.
+                    original_fields = json.loads(row[0])
+                    current_fields = json.loads(request)
                     if row[1] is None or (
-                        json.loads(row[0])[:2] != json.loads(request)[:2]
+                        original_fields[:2] != current_fields[:2]
+                        or original_fields[3:] != current_fields[3:]
                     ):
                         raise ValueError(
                             "SimpleX handoff provenance or content changed"

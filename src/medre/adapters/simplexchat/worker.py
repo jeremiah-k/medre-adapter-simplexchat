@@ -6,7 +6,57 @@ import asyncio
 import json
 import os
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    # Keep generated SDK type imports outside native worker startup; fake
+    # boundary stubs and offline diagnostics need only the runtime ChatApi.
+    from simplex_chat.types import T
+
+
+async def quote_target_available(
+    api: Any, *, user_id: int, chat_type: str, chat_id: int, item_id: int
+) -> bool:
+    """Check a retained parent through the native owner without sending bytes.
+
+    Missing, deleted or mismatched native items select the sealed text fallback.
+    A failed read is also safe to degrade; cancellation still stops the owner.
+    """
+    from .codec import chat_channel
+
+    if chat_type not in {"group", "direct"} or any(
+        type(value) is not int or not 1 <= value <= 2**63 - 1
+        for value in (user_id, chat_id, item_id)
+    ):
+        raise ValueError("Invalid native quote scope")
+    address = ("#" if chat_type == "group" else "@") + str(chat_id)
+    try:
+        response = await api.send_chat_cmd(f"/_get item info {address} {item_id}")
+    except Exception:
+        return False
+    if not isinstance(response, dict) or response.get("type") != "chatItemInfo":
+        return False
+    user, record = response.get("user"), response.get("chatItem")
+    if not isinstance(user, dict) or not isinstance(record, dict):
+        return False
+    native_user = user.get("userId")
+    info, item = record.get("chatInfo"), record.get("chatItem")
+    if not isinstance(info, dict) or not isinstance(item, dict):
+        return False
+    meta, content = item.get("meta"), item.get("content")
+    if not isinstance(meta, dict) or not isinstance(content, dict):
+        return False
+    native_id = meta.get("itemId")
+    return (
+        type(native_user) is int
+        and native_user == user_id
+        and chat_channel(info)
+        == f"{'group' if chat_type == 'group' else 'contact'}:{chat_id}"
+        and type(native_id) is int
+        and native_id == item_id
+        and meta.get("itemDeleted") is None
+        and content.get("type") in {"sndMsgContent", "rcvMsgContent"}
+    )
 
 
 class NativeEvents:
@@ -146,18 +196,29 @@ async def main() -> None:
                             emit(kind="wake")
                     elif operation == "connection_status":
                         result = connected
+                    elif operation == "quote_target":
+                        result = await quote_target_available(
+                            api,
+                            user_id=settings["user_id"],
+                            chat_type=args["chat_type"],
+                            chat_id=args["chat_id"],
+                            item_id=args["item_id"],
+                        )
                     elif operation == "send":
+                        quote = args.get("quoted_item_id")
+                        if quote is not None and (
+                            type(quote) is not int or not 1 <= quote <= 2**63 - 1
+                        ):
+                            raise ValueError("Invalid native quoted item identity")
+                        composed: dict[str, Any] = {
+                            "msgContent": {"type": "text", "text": args["text"]},
+                            "mentions": {},
+                        }
+                        if quote is not None:
+                            composed["quotedItemId"] = quote
                         result = await api.api_send_messages(
                             {"chatType": args["chat_type"], "chatId": args["chat_id"]},
-                            [
-                                {
-                                    "msgContent": {
-                                        "type": "text",
-                                        "text": args["text"],
-                                    },
-                                    "mentions": {},
-                                }
-                            ],
+                            [cast("T.ComposedMessage", composed)],
                         )
                     elif operation == "groups":
                         result = await api.api_list_groups(user["userId"])

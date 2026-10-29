@@ -69,3 +69,32 @@ async def test_pinned_send_messages_serializes_quote_into_native_command(
     header, payload = command.await_args.args[0].split(" json ", 1)
     assert header == f"/_send {address}"
     assert json.loads(payload) == composed
+
+
+@pytest.mark.parametrize("chat_type, address", [("group", "#1"), ("direct", "@1")])
+async def test_pinned_sdk_native_item_inspection_preserves_scope(chat_type, address):
+    from simplex_chat.api import ChatApi
+    from medre.adapters.simplexchat.worker import quote_target_available
+
+    info = (
+        {"type": "group", "groupInfo": {"groupId": 1}}
+        if chat_type == "group"
+        else {"type": "direct", "contact": {"contactId": 1}}
+    )
+    response = {
+        "type": "chatItemInfo",
+        "user": {"userId": 1},
+        "chatItem": {
+            "chatInfo": info,
+            "chatItem": {
+                "meta": {"itemId": 19},
+                "content": {"type": "rcvMsgContent"},
+            },
+        },
+    }
+    native = AsyncMock(return_value=response)
+    with patch("simplex_chat.core.chat_send_cmd", new=native):
+        assert await quote_target_available(
+            ChatApi(0), user_id=1, chat_type=chat_type, chat_id=1, item_id=19
+        )
+    native.assert_awaited_once_with(0, f"/_get item info {address} 19")

@@ -176,11 +176,36 @@ The pinned official SDK exposes `api_send_text_message(..., in_reply_to=ID)`
 which serializes `quotedItemId` into a composed message. Contract tests also
 exercise `api_send_messages` through native command serialization for direct
 and group chat references. This is an SDK shape fact, not permission to use an untrusted canonical ID as a native item ID.
-MEDRE's current worker sends plain text without a quote carrier; its handoff
-ledger binds only attempt, channel and body. Reply capability MUST remain
-`fallback` until an implementation binds a profile- and channel-scoped native
-reference into that durable reservation and validates the quote against the
-selected conversation immediately before native submission. Stale, absent,
+The quote candidate implementation below binds the scoped reference and fallback
+to the handoff ledger. Reply capability MUST remain `fallback` until its native
+submission and recipient-side presentation are independently qualified. Stale, absent,
 cross-chat, or cross-profile targets MUST retain readable fallback, never
 switch to an unrelated local item. A crash after invoking the native API
 MUST NOT cause a second send without independent proof of non-acceptance.
+
+## Scoped outbound native quote candidate (not yet advertised)
+
+The renderer MAY project a reply as a native quote candidate only when core
+provides one unambiguous destination-bound `target_fact` for the same adapter
+and channel and the relation identifies a stored canonical target. The native
+owner MUST independently verify the active profile namespace, native user,
+conversation and positive native item ID before the handoff reservation. After
+sealing the candidate and fallback, it MUST verify the retained native parent
+through `/_get item info`, matching the active user, conversation and exact item
+ID and refusing deleted content. Missing, unavailable or mismatched parents
+select the sealed fallback. A parent disappearing after this read can still
+make native submission uncertain; a failed send MUST NOT be retried as plain text.
+
+The existing handoff ledger stores quote reference and readable fallback in
+one sealed request alongside provenance, channel and rendered text. An
+unusable target before reservation selects the readable fallback; an already
+reserved or uncertain handoff MUST NOT be silently rewritten or resubmitted.
+An accepted handoff MUST be reused without rechecking an expired parent or
+sending the message again. Cancellation during lookup retains the reservation;
+a pre-write session refusal may release it under the existing handoff contract.
+Legacy three-element text reservations remain valid. The official 7.0.2 SDK
+transmits `quotedItemId` to the selected group/direct conversation. Native
+queue acceptance does not prove an independently observed recipient quote.
+
+`replies` MUST remain `fallback` until independent peer qualification,
+including native quote rendering, profile restart and ambiguous submission.

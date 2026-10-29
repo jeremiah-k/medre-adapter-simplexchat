@@ -148,6 +148,8 @@ class NativeSession:
         if op == "events":
             result, self.events = self.events, []
             return result
+        if op == "quote_target":
+            return True
         if op == "send":
             self.sent.append(args)
             if self.fail_send:

@@ -50,7 +50,7 @@ CAPABILITIES = AdapterCapabilities(
 
 def validate_payload(
     result: RenderingResult, config: SimplexChatConfig
-) -> tuple[str, int, str]:
+) -> tuple[str, int, str, str | None, str | None]:
     payload = result.payload
     if result.target_adapter != config.adapter_id or not isinstance(payload, Mapping):
         raise AdapterPermanentError("Invalid SimpleX delivery target")
@@ -60,7 +60,9 @@ def validate_payload(
         raise AdapterPermanentError("Unconfigured SimpleX conversation") from None
     text = payload.get("text")
     if (
-        set(payload) != {"chat_type", "chat_id", "text"}
+        not {"chat_type", "chat_id", "text"} <= set(payload)
+        or set(payload)
+        - {"chat_type", "chat_id", "text", "reply_native_ref", "reply_fallback_text"}
         or payload["chat_type"] != kind
         or type(payload["chat_id"]) is not int
         or payload["chat_id"] != number
@@ -69,7 +71,25 @@ def validate_payload(
         or len(text.encode()) > config.max_text_bytes
     ):
         raise AdapterPermanentError("Invalid SimpleX addressing or rendered text")
-    return kind, number, text
+    reply_ref = payload.get("reply_native_ref")
+    reply_fallback = payload.get("reply_fallback_text")
+    if (reply_ref is None) != (reply_fallback is None):
+        raise AdapterPermanentError("SimpleX reply target and fallback must be paired")
+    if reply_ref is not None and (
+        not plain_text(reply_ref)
+        or not reply_ref
+        or not plain_text(reply_fallback)
+        or not reply_fallback.strip()
+        or len(reply_fallback.encode("utf-8")) > config.max_text_bytes
+    ):
+        raise AdapterPermanentError("Invalid rendered SimpleX reply")
+    return (
+        kind,
+        number,
+        text,
+        reply_ref if isinstance(reply_ref, str) else None,
+        reply_fallback if isinstance(reply_fallback, str) else None,
+    )
 
 
 class SimplexChatAdapter(AdapterContract):
@@ -382,7 +402,9 @@ class SimplexChatAdapter(AdapterContract):
                 pass
 
     async def deliver(self, result: RenderingResult) -> AdapterHandoffResult:
-        kind, number, text = validate_payload(result, self.config)
+        kind, number, text, reply_ref, fallback_text = validate_payload(
+            result, self.config
+        )
         # validate_payload admits only configured conversation channels, so
         # the target is a concrete channel string from this point on.
         channel = result.target_channel
@@ -406,15 +428,45 @@ class SimplexChatAdapter(AdapterContract):
             raise AdapterPermanentError(
                 "SimpleX requires matching delivery attempt provenance"
             )
+        # Resolve quote scope before reserving. If the profile/user/chat no
+        # longer matches, freeze the readable fallback as the outgoing body.
+        quoted_item_id = codec.quote_item_id(channel, reply_ref) if reply_ref else None
+        if reply_ref and quoted_item_id is None:
+            assert fallback_text is not None
+            text, reply_ref, fallback_text = fallback_text, None, None
         try:
-            reserved, native_id = self.ledger.reserve(provenance, channel, text)
+            reserved, native_id = self.ledger.reserve(
+                provenance,
+                channel,
+                text,
+                reply_ref=reply_ref,
+                fallback_text=fallback_text,
+            )
             if not reserved and native_id is None:
                 raise ValueError(
                     "SimpleX handoff outcome is uncertain; inspect the native profile before retrying"
                 )
             if reserved:
+                # Seal both permitted outcomes before consulting native state.
+                # Accepted reservations bypass this check and never send again.
+                if quoted_item_id is not None:
+                    available = await self.session.call(
+                        "quote_target",
+                        chat_type=kind,
+                        chat_id=number,
+                        item_id=quoted_item_id,
+                    )
+                    if type(available) is not bool:
+                        raise ValueError("Invalid native quote lookup result")
+                    if not available:
+                        assert fallback_text is not None
+                        text, quoted_item_id = fallback_text, None
                 records = await self.session.call(
-                    "send", chat_type=kind, chat_id=number, text=text
+                    "send",
+                    chat_type=kind,
+                    chat_id=number,
+                    text=text,
+                    quoted_item_id=quoted_item_id,
                 )
                 if (
                     not isinstance(records, list)
