@@ -24,42 +24,11 @@ class UsageError(ValueError):
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(prog="medre-simplexchat", description=__doc__)
-    commands = result.add_subparsers(dest="command", required=True)
-    for name, help_text in (
-        ("init", "Create an explicit private bot profile"),
-        ("groups", "List group IDs and membership"),
-        ("contacts", "List local direct conversation IDs"),
-        ("join", "Connect using a private group/contact link"),
-        ("create-group", "Create a bot-owned group"),
-        ("accept-group", "Accept an existing group invitation"),
-        ("connect", "Resume pending native connections for a bounded interval"),
-    ):
-        command = commands.add_parser(name, help=help_text)
-        command.add_argument("--adapter", default="simplexchat")
-        command.add_argument(
-            "--config", help="Read the selected adapter from a MEDRE YAML config"
-        )
-        command.add_argument(
-            "--database-prefix", help="Override the private native profile prefix"
-        )
-        command.add_argument("--user-id", type=int)
-        command.add_argument(
-            "--libs-dir", help="Use a preinstalled official native library directory"
-        )
-        command.add_argument("--json", action="store_true")
-        if name == "accept-group":
-            command.add_argument("--group-id", type=int, required=True)
-        if name in {"init", "create-group"}:
-            command.add_argument("--name", default="MEDRE")
-        if name in {"join", "accept-group", "connect"}:
-            command.add_argument("--wait-seconds", type=float, default=60.0)
-        if name == "join":
-            command.add_argument(
-                "--link-stdin",
-                action="store_true",
-                help="Read the private connection link from stdin",
-            )
+    """Build the standalone parser from the same argument definitions as MEDRE."""
+    from .cli_contrib import configure_parser
+
+    result = argparse.ArgumentParser(prog="medre-simplexchat")
+    configure_parser(result, command_dest="command")
     return result
 
 
@@ -200,7 +169,7 @@ async def execute(
             return {
                 "connection_requested": True,
                 "connection_observed": False,
-                "action": "Run medre-simplexchat connect to resume pending connections. Inspect groups; use accept-group for an invited membership.",
+                "action": "Run medre adapter simplexchat connect to resume pending connections. Inspect groups; use accept-group for an invited membership.",
             }
         return {
             "connection_requested": True,
@@ -223,7 +192,12 @@ def _display(value: object) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    options = parser().parse_args(argv)
+    """Run the standalone provider entry point."""
+    return run(parser().parse_args(argv))
+
+
+def run(options: argparse.Namespace) -> int:
+    """Execute parsed commands with the provider's shared cleanup and error policy."""
     try:
         data = asyncio.run(execute(options, selected_config(options)))
     except (UsageError, SessionError) as exc:

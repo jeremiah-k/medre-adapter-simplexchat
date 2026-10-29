@@ -122,7 +122,7 @@ class SimplexChatAdapter(AdapterContract):
             Path(self.config.database_prefix + "_chat.db").is_file
         ):
             raise AdapterPermanentError(
-                "SimpleX profile is missing; run medre-simplexchat init explicitly"
+                "SimpleX profile is missing; run medre adapter simplexchat init explicitly"
             )
         if ctx.adapter_id != self.adapter_id:
             raise AdapterPermanentError("SimpleX context adapter identity differs")
