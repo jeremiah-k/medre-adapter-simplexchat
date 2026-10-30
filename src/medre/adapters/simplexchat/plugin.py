@@ -6,6 +6,7 @@ from medre.adapter_spec import AdapterSpec, SymbolRef
 def adapter_spec() -> AdapterSpec:
     module = "medre.adapters.simplexchat"
     return AdapterSpec(
+        api_version=1,
         transport="simplexchat",
         config=SymbolRef(module + ".config", "SimplexChatConfig"),
         runtime_config=None,
