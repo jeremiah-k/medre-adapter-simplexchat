@@ -32,9 +32,10 @@ available in activated project environments with the same arguments.
 
 `medre config native` offers no SimpleX form. Core refuses the transport with
 "'simplexchat' has no provider-declared native setup prompts; use its native
-configuration guide", and core's guided configuration routes SimpleX profile
-provisioning to `medre adapter simplexchat` because those commands
-intentionally contact the native service, unlike `config native`.
+configuration guide". Follow this provider-owned guide and use
+`medre adapter simplexchat` for profile provisioning; core does not invoke
+those commands automatically because they contact the native service,
+unlike `config native`.
 
 Core's `AdapterSpec` carries two provider-owned setup surfaces: `cli_register`,
 which exposes the provider's provisioning commands in the journey below, and
@@ -43,9 +44,9 @@ config values and writes a new YAML without contacting an SDK, account, or
 device. No seam exists for provider-declared setup guidance that core renders
 as operator instructions. SimpleX profile, contact, and group provisioning
 cannot happen offline: connection links and group membership require the
-native service, and a form-generated YAML would still leave the native
-profile missing. Declaring offline setup fields would therefore pretend that
-offline profile creation is possible, so the provider declares none. This
+native service. An offline form could reference an existing profile, but
+could not provision it or complete contact and group membership. The provider
+declares no such form; follow the provisioning commands below. This
 document and core's transport setup guide are the configuration guide the
 refusal points to; a typed setup-guidance seam remains a core API question
 for a separate change.
@@ -90,9 +91,10 @@ the command keeps native networking active for up to `--wait-seconds` (60 by
 default). The remote peer may need to approve.
 
 Provisioning completes with explicit actions. `accept-group --adapter sx --group-id ID`
-accepts an invited group, `connect` resumes pending native connections for
-a bounded interval, and `create-group --name 'Bridge room'` creates a
-bot-owned group. `contacts` lists direct chat IDs from the same profile.
+accepts an invited group, `connect --adapter sx` resumes pending native
+connections for a bounded interval, and
+`create-group --adapter sx --name 'Bridge room'` creates a bot-owned group.
+`contacts --adapter sx` lists direct chat IDs from the same profile.
 
 ### Stage 3: verification
 
@@ -101,8 +103,8 @@ Read each result at its true evidence level:
 - `groups` and `contacts` print the profile's native listings. A connection
   observation does not establish group membership; the command output itself
   states that a connected contact does not prove group membership. Accept an
-  invited group with `accept-group --group-id ID` before routing it, and use
-  `connect` again when a request stays pending.
+  invited group with `accept-group --adapter sx --group-id ID` before routing
+  it, and use `connect --adapter sx` again when a request stays pending.
 - Group/member/contact IDs are local to this dedicated profile; they are not
   global SimpleX identities.
 - A linked contact is not an independently witnessed delivery. Nothing above
@@ -128,7 +130,10 @@ profile and honors MEDRE's environment overrides. Routes use explicit channel
 strings such as `source_channel: "group:7"` and `dest_channel: "group:7"`.
 Both source and destination channels must be allowlisted. Ordinary active
 groups and accepted active contacts are supported; private group support
-conversations are excluded. Run `medre config check` before starting.
+conversations are excluded. This example configures only one provider;
+add a second adapter and explicit route legs with `medre config bridge`.
+Run `medre config check` and `medre routes plan` before starting; these
+offline checks do not prove native acceptance or recipient delivery.
 
 Set an encrypted profile's key with `MEDRE_ADAPTER__SX__DATABASE_KEY`; keep it
 out of YAML and arguments. `database_prefix` and `state_dir` override private
