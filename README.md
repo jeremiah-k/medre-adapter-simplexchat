@@ -28,37 +28,91 @@ adds the provider to the same environment. Use `medre adapter simplexchat` for
 profile commands. The standalone `medre-simplexchat` entry point remains
 available in activated project environments with the same arguments.
 
-## Create a dedicated profile
+## Setup guidance boundary
+
+`medre config native` offers no SimpleX form. Core refuses the transport with
+"'simplexchat' has no provider-declared native setup prompts; use its native
+configuration guide". Follow this provider-owned guide and use
+`medre adapter simplexchat` for profile provisioning; core does not invoke
+those commands automatically because they contact the native service,
+unlike `config native`.
+
+Core's `AdapterSpec` carries two provider-owned setup surfaces: `cli_register`,
+which exposes the provider's provisioning commands in the journey below, and
+`native_setup_fields`, an offline form that prompts for provider-declared
+config values and writes a new YAML without contacting an SDK, account, or
+device. No seam exists for provider-declared setup guidance that core renders
+as operator instructions. SimpleX profile, contact, and group provisioning
+cannot happen offline: connection links and group membership require the
+native service. An offline form could reference an existing profile, but
+could not provision it or complete contact and group membership. The provider
+declares no such form; follow the provisioning commands below. This
+document and core's transport setup guide are the configuration guide the
+refusal points to; a typed setup-guidance seam remains a core API question
+for a separate change.
+
+## Provision a dedicated profile
+
+Setup proceeds in stages: prerequisites, explicit provisioning commands,
+verification, and the configuration reference. Provisioning always contacts the
+native service; initialization is explicit and starting MEDRE does not silently
+create a SimpleX identity.
+
+### Stage 1: prerequisites
+
+- Stop MEDRE before profile commands. MEDRE commands exclusively lock the
+  profile; unrelated SimpleX clients do not honor this lock and must not open
+  it concurrently. The profile is dedicated to one MEDRE adapter and one
+  active native user.
+- Pick one `--adapter` ID (the examples use `sx`) and, when overriding storage,
+  one `--database-prefix`. Use the same selection for setup and runtime.
+  Profiles default to MEDRE's private instance state directory under
+  `adapters/sx/simplexchat/profile`; `MEDRE_HOME` and XDG paths are honored.
+- The pinned official `simplex-chat==7.0.2` SDK downloads its native library
+  on first initialization; `libs_dir` selects an existing official native
+  library directory instead.
+
+### Stage 2: explicit provisioning commands
+
+Run the provider's own commands in order. In a uv deployment project, prefix
+each with `uv run --locked`; the standalone `medre-simplexchat` entry point
+takes the same arguments.
 
 ```bash
-uv run --locked medre adapter simplexchat init --adapter sx --name 'MEDRE bridge'
-uv run --locked medre adapter simplexchat join --adapter sx
-uv run --locked medre adapter simplexchat groups --adapter sx --json
+medre adapter simplexchat init --adapter sx --name 'MEDRE bridge'
+medre adapter simplexchat join --adapter sx
+medre adapter simplexchat groups --adapter sx --json
 ```
 
-`join` prompts for a private contact or group connection link without echoing it.
-Use `--link-stdin` for automation. A requested connection is persisted, and the
-command keeps native networking active for up to `--wait-seconds` (60 by default).
-A connection observation does not establish group membership. Inspect `groups`;
-accept an invited group with `accept-group --group-id ID`. Use `connect` to resume
-pending connections for a bounded interval. The remote peer may need to approve.
+`init` creates the private bot profile and its active native user. `join`
+prompts for a private contact or group connection link without echoing it;
+use `--link-stdin` for automation. A requested connection is persisted, and
+the command keeps native networking active for up to `--wait-seconds` (60 by
+default). The remote peer may need to approve.
 
-`create-group --name 'Bridge room'` creates a bot-owned group. `contacts` lists
-direct chat IDs. Group/member/contact IDs are local to this dedicated profile;
-they are not global SimpleX identities.
+Provisioning completes with explicit actions. `accept-group --adapter sx --group-id ID`
+accepts an invited group, `connect --adapter sx` resumes pending native
+connections for a bounded interval, and
+`create-group --adapter sx --name 'Bridge room'` creates a bot-owned group.
+`contacts --adapter sx` lists direct chat IDs from the same profile.
 
-Profiles default to MEDRE's private instance state directory under
-`adapters/sx/simplexchat/profile`; `MEDRE_HOME` and XDG paths are honored. Use the
-same `--adapter` and optional `--database-prefix` for setup and runtime. When a
-runtime YAML exists, `--config bridge.yaml --adapter sx` selects its profile and
-honors MEDRE's environment overrides. Initialization is explicit; starting MEDRE
-does not silently create a SimpleX identity.
+### Stage 3: verification
 
-Stop MEDRE before profile commands. MEDRE commands exclusively lock the profile;
-unrelated SimpleX clients do not honor this lock and must not open it concurrently.
-The profile is dedicated to one MEDRE adapter and one active native user.
+Read each result at its true evidence level:
 
-## Configure conversations
+- `groups` and `contacts` print the profile's native listings. A connection
+  observation does not establish group membership; the command output itself
+  states that a connected contact does not prove group membership. Accept an
+  invited group with `accept-group --adapter sx --group-id ID` before routing
+  it, and use `connect --adapter sx` again when a request stays pending.
+- Group/member/contact IDs are local to this dedicated profile; they are not
+  global SimpleX identities.
+- A linked contact is not an independently witnessed delivery. Nothing above
+  proves a peer received a message: outbound acceptance confirms only the
+  native local queue, and health describes the local native session, not peer
+  reachability. See [Delivery and recovery](#delivery-and-recovery).
+
+### Stage 4: configuration reference
 
 Use IDs from this profile's `groups` or `contacts` output:
 
@@ -71,16 +125,21 @@ adapters:
       origin_label: SimpleX Chat
 ```
 
-Routes use explicit channel strings such as `source_channel: "group:7"` and
-`dest_channel: "group:7"`. Both source and destination channels must be allowlisted.
-Ordinary active groups and accepted active contacts are supported; private group
-support conversations are excluded. Run `medre config check` before starting.
+When a runtime YAML exists, `--config bridge.yaml --adapter sx` selects its
+profile and honors MEDRE's environment overrides. Routes use explicit channel
+strings such as `source_channel: "group:7"` and `dest_channel: "group:7"`.
+Both source and destination channels must be allowlisted. Ordinary active
+groups and accepted active contacts are supported; private group support
+conversations are excluded. This example configures only one provider;
+add a second adapter and explicit route legs with `medre config bridge`.
+Run `medre config check` and `medre routes plan` before starting; these
+offline checks do not prove native acceptance or recipient delivery.
 
-Set an encrypted profile's key with `MEDRE_ADAPTER__SX__DATABASE_KEY`; keep it out
-of YAML and arguments. `database_prefix` and `state_dir` override private storage.
-On Linux, `native_cache_dir` controls the SDK cache through XDG; on other systems
-the SDK uses its platform cache. `libs_dir` selects an existing official native
-library directory on any supported platform.
+Set an encrypted profile's key with `MEDRE_ADAPTER__SX__DATABASE_KEY`; keep it
+out of YAML and arguments. `database_prefix` and `state_dir` override private
+storage. On Linux, `native_cache_dir` controls the SDK cache through XDG; on
+other systems the SDK uses its platform cache. `libs_dir` selects an existing
+official native library directory on any supported platform.
 
 ## Delivery and recovery
 
