@@ -28,6 +28,28 @@ adds the provider to the same environment. Use `medre adapter simplexchat` for
 profile commands. The standalone `medre-simplexchat` entry point remains
 available in activated project environments with the same arguments.
 
+## Setup guidance boundary
+
+`medre config native` offers no SimpleX form. Core refuses the transport with
+"'simplexchat' has no provider-declared native setup prompts; use its native
+configuration guide", and core's guided configuration routes SimpleX profile
+provisioning to `medre adapter simplexchat` because those commands
+intentionally contact the native service, unlike `config native`.
+
+Core's `AdapterSpec` carries two provider-owned setup surfaces: `cli_register`,
+which exposes the provider's provisioning commands in the journey below, and
+`native_setup_fields`, an offline form that prompts for provider-declared
+config values and writes a new YAML without contacting an SDK, account, or
+device. No seam exists for provider-declared setup guidance that core renders
+as operator instructions. SimpleX profile, contact, and group provisioning
+cannot happen offline: connection links and group membership require the
+native service, and a form-generated YAML would still leave the native
+profile missing. Declaring offline setup fields would therefore pretend that
+offline profile creation is possible, so the provider declares none. This
+document and core's transport setup guide are the configuration guide the
+refusal points to; a typed setup-guidance seam remains a core API question
+for a separate change.
+
 ## Provision a dedicated profile
 
 Setup proceeds in stages: prerequisites, explicit provisioning commands,
