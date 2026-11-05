@@ -1,10 +1,25 @@
 """Provider discovery stays independent of native initialization."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from medre.adapter_spec import AdapterSpec, SymbolRef
+
+from .setup_journey import journey
 
 
 def adapter_spec() -> AdapterSpec:
     module = "medre.adapters.simplexchat"
+    instructions = (
+        journey() if hasattr(AdapterSpec, "native_setup_instructions") else None
+    )
+    # The typed informational journey is declared only when the installed
+    # core provides the seam; older cores construct the spec exactly as
+    # before because the kwarg would not exist there.
+    extras: dict[str, Any] = (
+        {} if instructions is None else {"native_setup_instructions": instructions}
+    )
     return AdapterSpec(
         api_version=1,
         transport="simplexchat",
@@ -39,4 +54,5 @@ def adapter_spec() -> AdapterSpec:
             "native_cache_dir",
             "libs_dir",
         ),
+        **extras,
     )
