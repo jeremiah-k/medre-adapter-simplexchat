@@ -30,6 +30,12 @@ available in activated project environments with the same arguments.
 
 ## Setup guidance boundary
 
+
+> The commands in this journey use `--adapter sx` as an **example** instance.
+> Replace that value consistently with the actual configured provider ID before
+> running commands. `medre config native` displays instructions only; it does
+> not substitute IDs, provision accounts, or create a bridge.
+
 `medre config native` offers no SimpleX form and never provisions this
 transport. What it prints depends on the installed core revision:
 
