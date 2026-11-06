@@ -86,7 +86,9 @@ def test_journey_models_match_the_core_contract():
     ):
         assert dataclasses.is_dataclass(model)
         assert model.__dataclass_params__.frozen
-        assert model.__dataclass_params__.slots
+        assert set(model.__slots__) == {
+            field.name for field in dataclasses.fields(model)
+        }
     assert [f.name for f in dataclasses.fields(core_adapter_spec.NativeSetupStep)] == [
         "command",
         "purpose",
