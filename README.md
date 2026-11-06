@@ -30,26 +30,45 @@ available in activated project environments with the same arguments.
 
 ## Setup guidance boundary
 
-`medre config native` offers no SimpleX form. Core refuses the transport with
-"'simplexchat' has no provider-declared native setup prompts; use its native
-configuration guide". Follow this provider-owned guide and use
-`medre adapter simplexchat` for profile provisioning; core does not invoke
-those commands automatically because they contact the native service,
+
+> The commands in this journey use `--adapter sx` as an **example** instance.
+> Replace that value consistently with the actual configured provider ID before
+> running commands. `medre config native` displays instructions only; it does
+> not substitute IDs, provision accounts, or create a bridge.
+
+`medre config native` offers no SimpleX form and never provisions this
+transport. What it prints depends on the installed core revision:
+
+- Cores without a typed setup-guidance seam refuse the transport with
+  "'simplexchat' has no provider-declared native setup prompts; use its
+  native configuration guide", pointing at this provider-owned guide.
+- Cores with the seam render the provider's declared setup journey as an
+  informational, offline listing of the same commands with per-step evidence
+  notes, classified `informational_only`. The render exits without writing a
+  configuration file, invokes nothing, and claims no provisioning: it is
+  guidance, not setup.
+
+Both behaviors route to the same journey below and to
+`medre adapter simplexchat` for actual profile provisioning; core does not
+invoke those commands automatically because they contact the native service,
 unlike `config native`.
 
-Core's `AdapterSpec` carries two provider-owned setup surfaces: `cli_register`,
-which exposes the provider's provisioning commands in the journey below, and
+Core's `AdapterSpec` carries provider-owned setup surfaces: `cli_register`,
+which exposes the provider's provisioning commands in the journey below;
 `native_setup_fields`, an offline form that prompts for provider-declared
 config values and writes a new YAML without contacting an SDK, account, or
-device. No seam exists for provider-declared setup guidance that core renders
-as operator instructions. SimpleX profile, contact, and group provisioning
-cannot happen offline: connection links and group membership require the
-native service. An offline form could reference an existing profile, but
-could not provision it or complete contact and group membership. The provider
-declares no such form; follow the provisioning commands below. This
-document and core's transport setup guide are the configuration guide the
-refusal points to; a typed setup-guidance seam remains a core API question
-for a separate change.
+device; and, on cores with the typed seam, `native_setup_instructions`, the
+informational journey for form-less providers that this provider declares.
+SimpleX profile, contact, and group provisioning cannot happen offline:
+connection links and group membership require the native service. An offline
+form could reference an existing profile, but could not provision it or
+complete contact and group membership. The provider declares no such form;
+it declares its journey as typed instructions so `medre config native` can
+print exactly the commands below with evidence notes at their true levels. A
+linked contact or a created group is not independently witnessed delivery,
+and provisioning results are never relay acceptance, delivery, or read
+evidence; they grant no send authority. This document remains the
+configuration guide that older cores' refusal points to.
 
 ## Provision a dedicated profile
 
