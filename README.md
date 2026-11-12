@@ -17,7 +17,7 @@ uv add 'medre @ git+https://github.com/jeremiah-k/medre.git@main' \
 ```
 
 Use immutable Git revisions for reproducible deployments. The provider pins the
-released official `simplex-chat==7.0.2` package. Its native library is downloaded
+released official `simplex-chat` package at the manifest pin. Its native library is downloaded
 on first initialization; no separate CLI daemon or unofficial wrapper is needed.
 The SDK supports Linux, macOS and Windows on its published architectures; CI
 qualifies Linux x86-64. This adapter's code is MIT licensed. The official SDK and
@@ -29,7 +29,6 @@ profile commands. The standalone `medre-simplexchat` entry point remains
 available in activated project environments with the same arguments.
 
 ## Setup guidance boundary
-
 
 > The commands in this journey use `--adapter sx` as an **example** instance.
 > Replace that value consistently with the actual configured provider ID before
@@ -87,7 +86,7 @@ create a SimpleX identity.
   one `--database-prefix`. Use the same selection for setup and runtime.
   Profiles default to MEDRE's private instance state directory under
   `adapters/sx/simplexchat/profile`; `MEDRE_HOME` and XDG paths are honored.
-- The pinned official `simplex-chat==7.0.2` SDK downloads its native library
+- The pinned official `simplex-chat` SDK downloads its native library
   on first initialization; `libs_dir` selects an existing official native
   library directory instead.
 

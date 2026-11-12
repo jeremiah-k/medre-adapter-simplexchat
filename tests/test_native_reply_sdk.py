@@ -1,18 +1,33 @@
 """Qualify the pinned SimpleX quote boundary before enabling native replies."""
 
+import tomllib
 from importlib.metadata import version
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _declared_sdk_pin() -> str:
+    """The installed SDK must be the one pyproject pins, without a literal here."""
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]
+    pins = [r for r in project["dependencies"] if r.startswith("simplex-chat==")]
+    assert len(pins) == 1
+    return pins[0].partition("==")[2]
+
 
 pytestmark = pytest.mark.simplexchat_sdk
 
 
 async def test_pinned_chat_api_transmits_scoped_quoted_item_id():
-    """The 7.0.2 API models a reply as one quoted item in one chat ref."""
+    """The pinned API models a reply as one quoted item in one chat ref."""
     from simplex_chat.api import ChatApi
 
-    assert version("simplex-chat") == "7.0.2"
+    assert version("simplex-chat") == _declared_sdk_pin()
     api = ChatApi(0)  # Do not open the native controller for API-shape tests.
     send = AsyncMock(return_value=[{"chatInfo": {}, "chatItem": {}}])
     with patch.object(ChatApi, "api_send_messages", new=send):

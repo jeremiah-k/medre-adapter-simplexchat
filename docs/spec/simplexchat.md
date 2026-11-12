@@ -203,7 +203,7 @@ reserved or uncertain handoff MUST NOT be silently rewritten or resubmitted.
 An accepted handoff MUST be reused without rechecking an expired parent or
 sending the message again. Cancellation during lookup retains the reservation;
 a pre-write session refusal may release it under the existing handoff contract.
-Legacy three-element text reservations remain valid. The official 7.0.2 SDK
+Legacy three-element text reservations remain valid. The official pinned SDK
 transmits `quotedItemId` to the selected group/direct conversation. Native
 queue acceptance does not prove an independently observed recipient quote.
 
