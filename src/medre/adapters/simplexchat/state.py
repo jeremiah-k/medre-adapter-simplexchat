@@ -119,7 +119,7 @@ class HandoffLedger:
         """
         import msgspec
 
-        # Legacy three-field entries remain byte-identical for ordinary text.
+        # Three-field entries stay byte-identical for ordinary text.
         # Native quotes bind target identity and fallback in the same sealed
         # request as channel and provenance, before any native command bytes.
         if (reply_ref is None) != (fallback_text is None):
