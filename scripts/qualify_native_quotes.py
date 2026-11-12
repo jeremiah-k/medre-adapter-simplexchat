@@ -12,10 +12,26 @@ import argparse
 import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
 COMMIT = re.compile(r"^[0-9a-f]{40}$")
+
+
+def _pinned_sdk() -> str:
+    """Qualification records must name the SDK version pyproject pins."""
+    project = tomllib.loads(
+        (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(
+            encoding="utf-8"
+        )
+    )["project"]
+    pins = [r for r in project["dependencies"] if r.startswith("simplex-chat==")]
+    if len(pins) != 1:
+        raise SystemExit("simplex-chat must be exact-pinned in pyproject.toml")
+    return pins[0].partition("==")[2]
+
+
 CASES = (
     "direct_quote",
     "group_quote",
@@ -32,7 +48,7 @@ def template() -> dict[str, Any]:
         "version": 1,
         "provider_commit": "",
         "core_commit": "",
-        "sdk_version": "7.0.2",
+        "sdk_version": _pinned_sdk(),
         "sender_profile_tag": "",
         "recipient_profile_tag": "",
         "cases": {
@@ -86,8 +102,8 @@ def validate(
         errors.append("Unsupported evidence format")
     if type(record.get("version")) is not int or record["version"] != 1:
         errors.append("Unsupported evidence version")
-    if record.get("sdk_version") != "7.0.2":
-        errors.append("SDK version must match the qualified 7.0.2 contract")
+    if record.get("sdk_version") != _pinned_sdk():
+        errors.append("SDK version must match the pinned simplex-chat contract")
     for key in ("provider_commit", "core_commit"):
         if (
             not isinstance(record.get(key), str)
