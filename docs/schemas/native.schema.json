@@ -24,7 +24,54 @@
       "minimum": 1
     },
     "sender_label": {
-      "type": "string"
+      "type": "string",
+      "description": "Local display name of the sender as assigned by this profile; falls back to the scoped sender identity."
+    },
+    "sender_display_name": {
+      "type": "string",
+      "description": "Peer-declared profile displayName supplied by the SDK; absent when not supplied."
+    },
+    "sender_full_name": {
+      "type": "string",
+      "description": "Peer-declared profile fullName supplied by the SDK; absent when not supplied."
+    },
+    "member_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Shared protocol member ID: the stable opaque group identity that survives localDisplayName changes. Group conversations only."
+    },
+    "member_role": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "description": "Group member role as reported by the SDK. Group conversations only."
+    },
+    "msg_verified": {
+      "enum": ["verified", "signed_no_key", "sig_missing"],
+      "description": "SDK message-signature verdict; signed_no_key means the item was signed but no key was available to verify it."
+    },
+    "user_mention": {
+      "type": "boolean"
+    },
+    "has_link": {
+      "type": "boolean"
+    },
+    "public_facts": {
+      "type": "object",
+      "description": "Explicit bridge projection allowlist; only these fields may cross transport boundaries.",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "maxProperties": 2,
+      "properties": {
+        "msg_verified": {
+          "enum": ["verified", "signed_no_key", "sig_missing"]
+        },
+        "member_role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        }
+      }
     }
   },
   "additionalProperties": false,
