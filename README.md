@@ -166,10 +166,14 @@ supplies a peer's profile, the peer-declared display name (then full name)
 leads the attribution prefix; the local word-pair alias and the scoped sender
 identity remain the fallbacks, and missing or non-printable names degrade
 without invention. The codec also captures the SDK's native facts in the
-versioned namespace: the shared stable member ID and role for group members,
-per-item signature-verification verdicts, and mention/link flags; only the
-explicit `public_facts` allowlist (`msg_verified`, `member_role`) may cross
-into another transport's relay context. Reply/thread fallbacks are plain
+versioned namespace: the shared stable member ID (an additional identifier
+alongside the scoped sender identity) and role for group members,
+per-item signature-verification verdicts, and mention/link flags. The explicit
+`public_facts` allowlist (`msg_verified`, `member_role`) crosses into another
+transport's relay context; the rest of the namespace stays out of the `off`,
+`minimal`, and `safe` metadata export modes, but an operator-selected explicit
+`full` metadata export embeds the whole namespace and can disclose the member
+ID. Reply/thread fallbacks are plain
 text; native quotes, attachments, edits, deletions, reactions, typing, and puppeting
 are not advertised. Received control items, sent echoes, blocked members, file
 captions, live partial messages, and private support chats are excluded.

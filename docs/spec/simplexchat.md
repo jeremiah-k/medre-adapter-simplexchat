@@ -38,10 +38,16 @@ identity rather than an invented name. `msgVerified` maps onto the canonical
 `transport.signature_valid` slot: `verified` is `True`, `sigMissing` is `False`,
 and signed-without-key stays unknown. The `memberId` is the protocol's shared
 member identity, not key material; `groupInfo` key material is never captured.
-Native namespace data stays local except the explicit `public_facts` allowlist
-(`msg_verified`, `member_role`), which core may carry as
-`bridge_context.source.native_facts` when this transport's events relay to
-another transport's metadata carrier.
+The shared `memberId` is an additional stable identifier alongside the scoped
+local member identity already used for the canonical sender identity, not a
+replacement for it. `member_id` is retained in the native namespace and excluded
+from the bounded public projections: it never enters the explicit `public_facts`
+allowlist (`msg_verified`, `member_role`) that core may carry as
+`bridge_context.source.native_facts`, and core's metadata builder omits the
+native namespace under its `off`, `minimal`, and `safe` export modes. Explicit
+`full` metadata export embeds the whole native namespace, so selecting it can
+disclose `member_id` when this transport's events relay to another transport's
+metadata carrier.
 
 First use baselines retained history. Restart recovery walks every native page,
 retains page anchors rather than offline payload history, and re-reads missing

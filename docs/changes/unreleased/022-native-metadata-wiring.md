@@ -33,3 +33,11 @@ stays `false`: the contract semantic is the adapter's ability to *transmit*
 structured metadata fields, and the SimpleX outbound payload remains plain
 text; the namespace and public facts are inbound capture that rides other
 destinations' carriers.
+
+The export boundary is deliberate and now pinned by tests: `member_id` never
+enters `public_facts`, and the core Matrix metadata builder excludes the whole
+native namespace in its `off`, `minimal`, and `safe` export modes, but an
+operator-selected explicit `full` metadata export embeds the namespace
+verbatim and can disclose `member_id`. The member ID is an additional stable
+identifier alongside the scoped local member identity already used for the
+canonical sender identity, not a replacement for it.

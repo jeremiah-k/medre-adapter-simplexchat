@@ -20,6 +20,13 @@ from medre.core.rendering.renderer import RenderingContext
 
 from conftest import NOW, info, item
 
+try:
+    from medre.adapters.matrix.metadata import build_matrix_metadata_content
+except ImportError:  # the medre-adapter-matrix distribution ships the builder
+    build_matrix_metadata_content = None
+
+MATRIX_BUILDER_REASON = "the medre-adapter-matrix distribution is not installed"
+
 DEFAULT_RELAY_PREFIX = "[{origin_label}] {sender}: "
 
 
@@ -188,11 +195,79 @@ def test_bridge_context_carries_the_simplex_namespace_facts(config):
 
     row = profiled_item(msgVerified={"type": "signed", "sigStatus": "verified"})
     row["chatDir"]["groupMember"]["memberRole"] = "admin"
+    row["chatDir"]["groupMember"]["memberId"] = "opaque-shared-id"
     event, _ = native(config, row)
     context = build_bridge_context(event)
     facts = context["source"]["native_facts"]
     assert facts["namespace"] == "simplexchat"
     assert facts["fields"] == {"msg_verified": "verified", "member_role": "admin"}
+    assert "member_id" not in facts["fields"]
+
+
+def member_event(config):
+    row = profiled_item()
+    row["chatDir"]["groupMember"]["memberId"] = "opaque-shared-id"
+    row["chatDir"]["groupMember"]["memberRole"] = "member"
+    event, _ = native(config, row)
+    return event
+
+
+def walk_values(obj, key):
+    """Every value stored under *key* anywhere in a built content tree."""
+    found = []
+    if isinstance(obj, dict):
+        for name, value in obj.items():
+            if name == key:
+                found.append(value)
+            found.extend(walk_values(value, key))
+    elif isinstance(obj, (list, tuple)):
+        for value in obj:
+            found.extend(walk_values(value, key))
+    return found
+
+
+@pytest.mark.skipif(build_matrix_metadata_content is None, reason=MATRIX_BUILDER_REASON)
+@pytest.mark.parametrize("mode", ["off", "minimal", "safe"])
+def test_member_id_stays_out_of_bounded_metadata_export_modes(config, mode):
+    """The native namespace is not a public projection: bounded modes omit it."""
+    content = build_matrix_metadata_content(member_event(config), mode)
+    assert walk_values(content, "member_id") == []
+    if mode == "off":
+        assert content == {}
+    elif mode == "minimal":
+        assert "metadata" not in content["medre"]
+    else:
+        assert "native" not in content["medre"]["metadata"]
+
+
+@pytest.mark.skipif(build_matrix_metadata_content is None, reason=MATRIX_BUILDER_REASON)
+def test_explicit_full_metadata_export_discloses_member_id(config):
+    """Full mode embeds the namespace verbatim; selecting it discloses member_id."""
+    import json
+    from pathlib import Path
+    from jsonschema import Draft202012Validator
+
+    content = build_matrix_metadata_content(member_event(config), "full")
+    namespace = content["medre"]["metadata"]["native"]["data"]["simplexchat"]
+    assert namespace["member_id"] == "opaque-shared-id"
+    schema_path = (
+        Path(__file__).resolve().parents[1] / "docs/schemas/native.schema.json"
+    )
+    Draft202012Validator(json.loads(schema_path.read_text())).validate(namespace)
+
+
+@pytest.mark.skipif(build_matrix_metadata_content is None, reason=MATRIX_BUILDER_REASON)
+@pytest.mark.parametrize("mode", ["off", "minimal", "safe", "full"])
+def test_group_key_material_never_reaches_any_metadata_export(config, mode):
+    """Key material is never captured, so even full mode cannot disclose it."""
+    chat, row = info(), profiled_item()
+    chat["groupInfo"]["privateKey"] = "sensitive-key-material"
+    row["chatDir"]["groupMember"]["memberId"] = "opaque-shared-id"
+    event = SimplexChatCodec(config, "profile").decode(chat, row)
+    assert event is not None
+    content = build_matrix_metadata_content(event, mode)
+    assert walk_values(content, "privateKey") == []
+    assert "sensitive-key-material" not in repr(content)
 
 
 def test_projector_prefers_profile_names_and_keeps_the_scoped_handle():
