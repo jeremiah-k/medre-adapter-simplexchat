@@ -22,7 +22,7 @@ Attribution precedence for relayed messages is now the peer-declared profile
 (`localDisplayName`), then the scoped sender identity. This follows SimpleX's
 own profile model, where `displayName` is the shown name and `fullName` is
 supplementary. A group message from a member whose profile says
-`displayName: "Jeremiah"` now relays as `[Mesh] Jeremiah: ...` instead of
+`displayName: "Morgan"` now relays as `[Mesh] Morgan: ...` instead of
 `[Mesh] Alice: ...`.
 
 `native.schema.json` gains the optional properties. The existing key-hygiene
