@@ -30,7 +30,7 @@ MATRIX_BUILDER_REASON = "the medre-adapter-matrix distribution is not installed"
 DEFAULT_RELAY_PREFIX = "[{origin_label}] {sender}: "
 
 
-def profile(display_name="Jeremiah", full_name="Jeremiah K.", **updates):
+def profile(display_name="Morgan", full_name="Morgan Tate", **updates):
     return {"displayName": display_name, "fullName": full_name, **updates}
 
 
@@ -69,22 +69,22 @@ async def test_profile_display_name_reaches_the_relay_prefix(config):
     """The peer-declared profile name outranks the local word-pair alias."""
     event, native_ns = native(config, profiled_item())
     assert native_ns["sender_label"] == "Alice"
-    assert native_ns["sender_display_name"] == "Jeremiah"
-    assert native_ns["sender_full_name"] == "Jeremiah K."
+    assert native_ns["sender_display_name"] == "Morgan"
+    assert native_ns["sender_full_name"] == "Morgan Tate"
     result = await prefixed_renderer(config).render(event, render_context())
-    assert result.payload["text"] == "[Mesh] Jeremiah: Hello <SimpleX> & 世界"
+    assert result.payload["text"] == "[Mesh] Morgan: Hello <SimpleX> & 世界"
 
 
 async def test_attribution_falls_back_through_full_name_and_local_alias(config):
     """Only SDK-supplied names are used; missing fields degrade, never invent."""
     renderer = prefixed_renderer(config)
     event, native_ns = native(
-        config, profiled_item(profile={"displayName": "", "fullName": "Jeremiah K."})
+        config, profiled_item(profile={"displayName": "", "fullName": "Morgan Tate"})
     )
     assert "sender_display_name" not in native_ns
-    assert native_ns["sender_full_name"] == "Jeremiah K."
+    assert native_ns["sender_full_name"] == "Morgan Tate"
     result = await renderer.render(event, render_context())
-    assert result.payload["text"].startswith("[Mesh] Jeremiah K.: ")
+    assert result.payload["text"].startswith("[Mesh] Morgan Tate: ")
 
     event, native_ns = native(
         config, profiled_item(profile={"displayName": "", "fullName": ""})
@@ -114,9 +114,9 @@ async def test_direct_conversations_project_the_contact_profile(config):
     event = codec.decode(chat, item(chatDir={"type": "directRcv"}))
     native_ns = event.metadata.native.data["simplexchat"]
     assert native_ns["sender_label"] == "word-pair"
-    assert native_ns["sender_display_name"] == "Jeremiah"
+    assert native_ns["sender_display_name"] == "Morgan"
     result = await prefixed_renderer(config).render(event, render_context())
-    assert result.payload["text"] == "[Mesh] Jeremiah: Hello <SimpleX> & 世界"
+    assert result.payload["text"] == "[Mesh] Morgan: Hello <SimpleX> & 世界"
 
 
 def test_member_id_is_captured_as_the_stable_shared_identity(config):
@@ -276,13 +276,13 @@ def test_projector_prefers_profile_names_and_keeps_the_scoped_handle():
             "simplexchat": {
                 "schema_version": 1,
                 "sender_label": "Alice",
-                "sender_display_name": "Jeremiah",
-                "sender_full_name": "Jeremiah K.",
+                "sender_display_name": "Morgan",
+                "sender_full_name": "Morgan Tate",
             }
         },
         source_transport_id="sx:user:1:group:1:member:2",
     )
-    assert projected["source_sender_label"] == "Jeremiah"
+    assert projected["source_sender_label"] == "Morgan"
     assert projected["source_sender_handle"] == "sx:user:1:group:1:member:2"
     legacy = project_attribution(
         {"simplexchat": {"schema_version": 1, "sender_label": "Alice"}},
