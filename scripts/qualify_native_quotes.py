@@ -9,6 +9,7 @@ It never opens a native profile, sends a message, or promotes capabilities.
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
 import json
 import re
 import sys
@@ -30,6 +31,17 @@ def _pinned_sdk() -> str:
     if len(pins) != 1:
         raise SystemExit("simplex-chat must be exact-pinned in pyproject.toml")
     return pins[0].partition("==")[2]
+
+
+def check_installed_sdk() -> str:
+    """Verify the local observation environment, not a remote peer's SDK."""
+    try:
+        actual = importlib.metadata.version("simplex-chat")
+    except importlib.metadata.PackageNotFoundError as exc:
+        raise ValueError("simplex-chat is not installed") from exc
+    if actual != _pinned_sdk():
+        raise ValueError("Installed simplex-chat does not match the declared pin")
+    return actual
 
 
 CASES = (
@@ -155,6 +167,9 @@ def main(argv: list[str] | None = None) -> int:
         "--template", action="store_true", help="Print an unqualified evidence template"
     )
     mode.add_argument(
+        "--check-sdk", action="store_true", help="Verify the installed observation SDK"
+    )
+    mode.add_argument(
         "--validate",
         metavar="FILE",
         type=Path,
@@ -167,12 +182,22 @@ def main(argv: list[str] | None = None) -> int:
         "--provider-commit", help="Expected immutable provider qualification revision"
     )
     args = parser.parse_args(argv)
-    if args.template and (
+    if (args.template or args.check_sdk) and (
         args.core_commit is not None or args.provider_commit is not None
     ):
         parser.error("Revision selectors apply only to --validate")
-    if args.template:
-        print(json.dumps(template(), indent=2))
+    if args.template or args.check_sdk:
+        try:
+            actual = check_installed_sdk()
+        except ValueError as exc:
+            print(f"Unqualified: {exc}", file=sys.stderr)
+            return 1
+        if args.template:
+            record = template()
+            record["sdk_version"] = actual
+            print(json.dumps(record, indent=2))
+        else:
+            print(f"Installed simplex-chat matches declared pin: {actual}")
         return 0
     if any(
         not isinstance(ref, str) or not COMMIT.fullmatch(ref) or ref == "0" * 40

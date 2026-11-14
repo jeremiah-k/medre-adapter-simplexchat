@@ -65,12 +65,15 @@ def test_same_sender_and_recipient_is_not_independent():
 
 def test_stale_or_missing_sdk_and_source_revisions_rejected():
     record = qualified_record()
-    record["sdk_version"] = "7.0.3"
+    record["sdk_version"] = "not-the-pinned-version"
     record["provider_commit"] = "not-an-immutable-pin"
     assert len(validate(record)) >= 2
 
 
-def test_no_credentials_in_template_and_cli_fail_closed(tmp_path):
+def test_no_credentials_in_template_and_cli_fail_closed(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        gate.importlib.metadata, "version", lambda _: gate._pinned_sdk()
+    )
     path = tmp_path / "result.json"
     path.write_text(json.dumps(gate.template()))
     assert (
@@ -139,3 +142,38 @@ def test_validation_requires_explicit_target_revisions(tmp_path):
     with pytest.raises(SystemExit) as exc:
         gate.main(["--validate", str(tmp_path / "not-read.json")])
     assert exc.value.code == 2
+
+
+@pytest.mark.parametrize("mode", ["--template", "--check-sdk"])
+def test_observation_setup_refuses_wrong_installed_sdk(mode, monkeypatch, capsys):
+    monkeypatch.setattr(gate.importlib.metadata, "version", lambda _: "stale")
+    assert gate.main([mode]) == 1
+    output = capsys.readouterr()
+    assert not output.out
+    assert "does not match" in output.err
+
+
+@pytest.mark.parametrize("mode", ["--template", "--check-sdk"])
+def test_observation_setup_refuses_missing_sdk(mode, monkeypatch, capsys):
+    def missing(name):
+        raise gate.importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(gate.importlib.metadata, "version", missing)
+    assert gate.main([mode]) == 1
+    assert not capsys.readouterr().out
+
+
+def test_installed_sdk_check_accepts_exact_pin(monkeypatch, capsys):
+    monkeypatch.setattr(
+        gate.importlib.metadata, "version", lambda _: gate._pinned_sdk()
+    )
+    assert gate.main(["--check-sdk"]) == 0
+    assert gate._pinned_sdk() in capsys.readouterr().out
+
+
+def test_external_validation_does_not_claim_local_sdk_installation(monkeypatch):
+    def missing(name):
+        raise gate.importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(gate.importlib.metadata, "version", missing)
+    assert validate(qualified_record()) == ()

@@ -10,9 +10,14 @@ attribution, deleted/expired parent fallback, restart with the same reserved
 handoff, and ambiguous native submission remaining fenced (never doubled).
 Keep each native recipient observation separately accessible for audit.
 
-Run the evidence completeness gate:
+Before collecting observations, run `--check-sdk` in the actual environment
+of each observation host and retain the result with the peer evidence. The
+command checks installed distribution metadata against the declared SDK pin.
+Template generation also refuses a missing or mismatched SDK. Run the evidence
+completeness gate:
 
 ```shell
+uv run --no-sync python scripts/qualify_native_quotes.py --check-sdk
 uv run --no-sync python scripts/qualify_native_quotes.py --template > /private/simplex-peer-template.json
 uv run --no-sync python scripts/qualify_native_quotes.py \
   --validate /private/observations.json \
@@ -20,7 +25,9 @@ uv run --no-sync python scripts/qualify_native_quotes.py \
 ```
 
 The tool never opens profiles and cannot prove an operator's observations are
-true: it only refuses incomplete or contradictory metadata. Filling the template
+true: offline validation only refuses incomplete or contradictory metadata.
+It does not inspect the SDK installation on either peer; the separately
+recorded local checks are necessary but do not authenticate the observations. Filling the template
 with `true` is **not** qualification. Verify receipts in the recipient application
 and retain independently captured, redacted evidence before capability promotion.
 Do not record session secrets, message bodies, profile database contents, or
