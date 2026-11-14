@@ -71,7 +71,9 @@ def test_stale_or_missing_sdk_and_source_revisions_rejected():
 
 
 def test_no_credentials_in_template_and_cli_fail_closed(tmp_path, monkeypatch):
-    monkeypatch.setattr(gate.importlib.metadata, "version", lambda _: gate._pinned_sdk())
+    monkeypatch.setattr(
+        gate.importlib.metadata, "version", lambda _: gate._pinned_sdk()
+    )
     path = tmp_path / "result.json"
     path.write_text(json.dumps(gate.template()))
     assert (
@@ -162,7 +164,9 @@ def test_observation_setup_refuses_missing_sdk(mode, monkeypatch, capsys):
 
 
 def test_installed_sdk_check_accepts_exact_pin(monkeypatch, capsys):
-    monkeypatch.setattr(gate.importlib.metadata, "version", lambda _: gate._pinned_sdk())
+    monkeypatch.setattr(
+        gate.importlib.metadata, "version", lambda _: gate._pinned_sdk()
+    )
     assert gate.main(["--check-sdk"]) == 0
     assert gate._pinned_sdk() in capsys.readouterr().out
 
