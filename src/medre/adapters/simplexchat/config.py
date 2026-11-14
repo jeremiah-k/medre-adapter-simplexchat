@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from medre.core.rendering.attribution import validate_relay_prefix
+
 import math
 import re
 from collections.abc import Iterable
@@ -91,6 +93,7 @@ class SimplexChatConfig:
                 raise ValueError(f"{name} must be positive and finite")
         if type(self.max_text_bytes) is not int or self.max_text_bytes <= 0:
             raise ValueError("max_text_bytes must be a positive integer")
+        validate_relay_prefix(self.relay_prefix)
         return self
 
     def destination(self, channel: str | None) -> tuple[str, int]:
