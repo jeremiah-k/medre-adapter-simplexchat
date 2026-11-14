@@ -203,7 +203,11 @@ class SimplexChatCodec:
             native["sender_full_name"] = full_name
         if isinstance(member_id, str) and member_id and plain_text(member_id):
             native["member_id"] = member_id
-        if isinstance(member_role, str) and member_role and plain_text(member_role):
+        if (
+            isinstance(member_role, str)
+            and 1 <= len(member_role) <= 32
+            and plain_text(member_role)
+        ):
             native["member_role"] = member_role
         if msg_verified is not None:
             native["msg_verified"] = msg_verified

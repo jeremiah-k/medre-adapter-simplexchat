@@ -47,7 +47,7 @@ def project_attribution(
 
 
 def _supplied(value: object) -> str | None:
-    """Accept one non-blank string name; blank or non-text values fall through."""
-    if isinstance(value, str) and value.strip():
+    """Accept printable non-blank source names; otherwise use the next source."""
+    if isinstance(value, str) and value.strip() and value.isprintable():
         return value
     return None

@@ -235,3 +235,38 @@ def test_native_namespace_timestamp_and_label_semantics_are_unchanged(config):
     assert native_ns["schema_version"] == 1
     assert native_ns["item_id"] == row["meta"]["itemId"]
     assert event.timestamp == NOW
+
+
+@pytest.mark.parametrize("length,accepted", [(32, True), (33, False)])
+def test_member_role_bound_matches_native_schema(config, length, accepted):
+    import json
+    from pathlib import Path
+    from jsonschema import Draft202012Validator
+
+    row = profiled_item()
+    row["chatDir"]["groupMember"]["memberRole"] = "r" * length
+    _, namespace = native(config, row)
+    assert ("member_role" in namespace) is accepted
+    assert ("member_role" in namespace.get("public_facts", {})) is accepted
+    schema_path = (
+        Path(__file__).resolve().parents[1] / "docs/schemas/native.schema.json"
+    )
+    Draft202012Validator(json.loads(schema_path.read_text())).validate(namespace)
+
+
+@pytest.mark.parametrize(
+    "invalid", ["\nadmin", "Admin\tRole", "A\x00B", "\u202eoverride"]
+)
+def test_projected_attribution_rejects_nonprintable_preferred_name(invalid):
+    projected = project_attribution(
+        {
+            "simplexchat": {
+                "schema_version": 1,
+                "sender_display_name": invalid,
+                "sender_full_name": "Valid Name",
+                "sender_label": "Local Alias",
+            }
+        },
+        source_transport_id="sx:user:1:group:1:member:2",
+    )
+    assert projected["source_sender_label"] == "Valid Name"
