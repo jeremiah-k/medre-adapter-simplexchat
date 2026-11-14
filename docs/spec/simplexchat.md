@@ -29,6 +29,26 @@ items, files, controls, blocked or locally hidden group members, and partial liv
 messages MUST NOT enter the canonical stream. Metadata exports only the versioned
 public projection described by the native namespace schema.
 
+The codec captures the SDK-supplied facts that schema declares: peer-declared
+profile `displayName` and `fullName`, the shared protocol `memberId` and
+`memberRole` for group conversations, the item's `msgVerified` verdict, and the
+`userMention`/`hasLink` flags. Each fact is present only when the SDK supplies a
+valid value; missing profile fields degrade to the local display name and scoped
+identity rather than an invented name. `msgVerified` maps onto the canonical
+`transport.signature_valid` slot: `verified` is `True`, `sigMissing` is `False`,
+and signed-without-key stays unknown. The `memberId` is the protocol's shared
+member identity, not key material; `groupInfo` key material is never captured.
+The shared `memberId` is an additional stable identifier alongside the scoped
+local member identity already used for the canonical sender identity, not a
+replacement for it. `member_id` is retained in the native namespace and excluded
+from the bounded public projections: it never enters the explicit `public_facts`
+allowlist (`msg_verified`, `member_role`) that core may carry as
+`bridge_context.source.native_facts`, and core's metadata builder omits the
+native namespace under its `off`, `minimal`, and `safe` export modes. Explicit
+`full` metadata export embeds the whole native namespace, so selecting it can
+disclose `member_id` when this transport's events relay to another transport's
+metadata carrier.
+
 First use baselines retained history. Restart recovery walks every native page,
 retains page anchors rather than offline payload history, and re-reads missing
 pages oldest first. Group history order MUST NOT be treated as increasing native
@@ -72,9 +92,11 @@ replies/threads are advertised. Attachments, edits, reactions, deletions, typing
 read receipts, presence and puppeting are not advertised. The bridge does not
 extend a native platform's encryption guarantee across other transports.
 
-Peer display names used for relay attribution must be printable on one line;
-invalid labels fall back to the scoped sender identity. Shutdown releases profile
-ownership only after its owned process is confirmed reaped. Failed or cancelled
+Relay attribution prefers the peer-declared profile `displayName`, then
+`fullName`, then the local display name, then the scoped sender identity, in
+that order. Every candidate name must be printable on one line; invalid or
+absent names fall through, and only SDK-supplied names are used. Shutdown
+releases profile ownership only after its owned process is confirmed reaped. Failed or cancelled
 cleanup MUST retain the lease and session reference, refuse further native calls,
 and permit a serialized cleanup retry. A cancelled adapter task gather MUST
 mark health failed before admitting further calls. Concurrent stops MUST share

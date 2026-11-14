@@ -125,7 +125,6 @@ def test_mutations_and_invalid_identity_are_excluded(config, values):
 def test_private_group_identity_is_scoped_and_keys_are_not_exported(config):
     chat, row = info(), item()
     chat["groupInfo"]["privateKey"] = "sensitive"
-    row["chatDir"]["groupMember"]["memberId"] = "sensitive"
     row["quotedItem"] = {"itemId": 19, "content": {"type": "text", "text": "quoted"}}
     codec = SimplexChatCodec(config, "profile")
     event = codec.decode(chat, row)

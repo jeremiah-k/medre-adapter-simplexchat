@@ -18,6 +18,42 @@ def _mapping(value: object) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
+def _display_name(value: object) -> str | None:
+    """Accept one printable SDK profile name; return None instead of inventing."""
+    if (
+        isinstance(value, str)
+        and plain_text(value)
+        and value.strip()
+        and value.isprintable()
+    ):
+        return value
+    return None
+
+
+_MSG_VERIFIED_SIGNATURE: dict[str, bool | None] = {
+    "verified": True,
+    "sig_missing": False,
+    # Signed without a verifiable key: signature validity stays unknown.
+    "signed_no_key": None,
+}
+
+
+def _msg_verified(value: object) -> str | None:
+    """Normalize one SDK ``msgVerified`` verdict; unknown shapes stay absent."""
+    if not isinstance(value, Mapping):
+        return None
+    kind = value.get("type")
+    if kind == "signed":
+        if value.get("sigStatus") == "verified":
+            return "verified"
+        if value.get("sigStatus") == "signedNoKey":
+            return "signed_no_key"
+        return None
+    if kind == "sigMissing":
+        return "sig_missing"
+    return None
+
+
 def chat_channel(info: Mapping[str, Any]) -> str | None:
     if not isinstance(info, Mapping):
         return None
@@ -106,12 +142,18 @@ class SimplexChatCodec:
                 return None
             sender = f"{self.profile}:user:{self.config.user_id}:{channel}:member:{sender_id}"
             label = member.get("localDisplayName")
+            member_profile = _mapping(member.get("memberProfile"))
+            member_id = member.get("memberId")
+            member_role = member.get("memberRole")
         else:
             if direction.get("type") != "directRcv":
                 return None
             contact = _mapping(info["contact"])
             sender = f"{self.profile}:user:{self.config.user_id}:{channel}"
             label = contact.get("localDisplayName")
+            member_profile = _mapping(contact.get("profile"))
+            member_id = None
+            member_role = None
         try:
             timestamp = datetime.fromisoformat(meta["itemTs"].replace("Z", "+00:00"))
             if timestamp.tzinfo is None:
@@ -141,11 +183,45 @@ class SimplexChatCodec:
                     quoted_text if plain_text(quoted_text) else None,
                 ),
             )
-        label = (
-            label
-            if plain_text(label) and label.strip() and label.isprintable()
-            else sender
-        )
+        label = _display_name(label) or sender
+        display_name = _display_name(member_profile.get("displayName"))
+        full_name = _display_name(member_profile.get("fullName"))
+        msg_verified = _msg_verified(meta.get("msgVerified"))
+        user_mention = meta.get("userMention")
+        has_link = meta.get("hasLink")
+        native: dict[str, object] = {
+            "schema_version": 1,
+            "profile_id": self.profile,
+            "user_id": self.config.user_id,
+            "conversation": channel,
+            "item_id": item_id,
+            "sender_label": label,
+        }
+        if display_name is not None:
+            native["sender_display_name"] = display_name
+        if full_name is not None:
+            native["sender_full_name"] = full_name
+        if isinstance(member_id, str) and member_id and plain_text(member_id):
+            native["member_id"] = member_id
+        if (
+            isinstance(member_role, str)
+            and 1 <= len(member_role) <= 32
+            and plain_text(member_role)
+        ):
+            native["member_role"] = member_role
+        if msg_verified is not None:
+            native["msg_verified"] = msg_verified
+        if type(user_mention) is bool:
+            native["user_mention"] = user_mention
+        if type(has_link) is bool:
+            native["has_link"] = has_link
+        public_facts: dict[str, object] = {}
+        if msg_verified is not None:
+            public_facts["msg_verified"] = msg_verified
+        if isinstance(native.get("member_role"), str):
+            public_facts["member_role"] = native["member_role"]
+        if public_facts:
+            native["public_facts"] = public_facts
         return CanonicalEvent(
             event_id=str(
                 uuid5(NAMESPACE_URL, f"medre:{self.config.adapter_id}:{reference}")
@@ -162,18 +238,11 @@ class SimplexChatCodec:
             payload={"body": text},
             source_native_ref=NativeRef(self.config.adapter_id, channel, reference),
             metadata=EventMetadata(
-                transport=TransportMetadata(protocol="simplexchat", substrate="ip"),
-                native=NativeMetadata(
-                    data={
-                        "simplexchat": {
-                            "schema_version": 1,
-                            "profile_id": self.profile,
-                            "user_id": self.config.user_id,
-                            "conversation": channel,
-                            "item_id": item_id,
-                            "sender_label": label,
-                        }
-                    }
+                transport=TransportMetadata(
+                    protocol="simplexchat",
+                    substrate="ip",
+                    signature_valid=_MSG_VERIFIED_SIGNATURE.get(msg_verified),
                 ),
+                native=NativeMetadata(data={"simplexchat": native}),
             ),
         )
