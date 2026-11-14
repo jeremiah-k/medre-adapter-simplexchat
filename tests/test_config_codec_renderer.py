@@ -255,3 +255,13 @@ async def test_malformed_canonical_text_never_becomes_native_content(config, pay
         await SimplexChatRenderer({"sx": config}).render(
             event, RenderingContext("direct", "sx", "group:1", "simplexchat")
         )
+
+
+async def test_disabled_relay_prefix_omits_diagnostics(config):
+    config = replace(config, relay_prefix="")
+    event = SimplexChatCodec(config, "profile").decode(info(), item())
+    result = await SimplexChatRenderer({config.adapter_id: config}).render(
+        event,
+        RenderingContext("direct", config.adapter_id, config.chats[0], "simplexchat"),
+    )
+    assert not any(key.startswith("relay_prefix_") for key in result.metadata)

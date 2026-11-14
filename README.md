@@ -224,7 +224,8 @@ adapters:
 
 Add `--sdk` to install the native dependency. See `medre dev --help` for workspace
 selection and dependency options. CI checks
-this adapter against core `main`, recording both revisions. Its manual `core_ref`
+this adapter against core `main`, resolved once per run, recording both revisions.
+Keep `MEDRE_CORE_REF` unset. Its manual `core_ref`
 input qualifies a candidate core revision without committing temporary branch pins.
 
 Run tests from a development environment containing core and this provider:
