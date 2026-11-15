@@ -3,11 +3,10 @@
 from dataclasses import replace
 
 import pytest
+from conftest import attempt, rendered
 
 from medre.adapters.simplexchat.adapter import SimplexChatAdapter
 from medre.adapters.simplexchat.session import SimplexChatSession
-
-from conftest import attempt, rendered
 
 pytestmark = [pytest.mark.simplexchat_sdk, pytest.mark.timeout(120)]
 

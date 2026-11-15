@@ -100,6 +100,7 @@ async def test_shutdown_reaps_descendants_that_keep_stdout_open(
     config, stub_sdk, tmp_path, monkeypatch
 ):
     import os
+
     from medre.adapters.simplexchat import session as boundary
 
     monkeypatch.setattr(boundary, "_STOP_TIMEOUT", 0.05)
@@ -142,8 +143,9 @@ async def test_shutdown_reaps_descendants_that_keep_stdout_open(
 async def test_shutdown_deadline_includes_stdin_backpressure(
     config, stub_sdk, monkeypatch
 ):
-    from medre.adapters.simplexchat import session as boundary
     from conftest import wait_until
+
+    from medre.adapters.simplexchat import session as boundary
 
     monkeypatch.setattr(boundary, "_STOP_TIMEOUT", 0.05)
     monkeypatch.setattr(boundary, "_DRAIN_TIMEOUT", 1.0)

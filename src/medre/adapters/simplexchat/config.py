@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from medre.core.rendering.attribution import validate_relay_prefix
-
 import math
 import re
 from collections.abc import Iterable
@@ -12,6 +10,7 @@ from typing import Any, TypeGuard
 
 from medre.config.identifiers import adapter_id_problem
 from medre.config.paths import MedrePaths
+from medre.core.rendering.attribution import validate_relay_prefix
 
 
 def conversation(value: str | None) -> tuple[str, int]:

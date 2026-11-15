@@ -3,13 +3,13 @@
 import json
 
 import pytest
-
-from medre.adapters.simplexchat.adapter import SimplexChatAdapter
-from medre.adapters.simplexchat.fake import FakeSimplexChatAdapter
 from medre.core.supervision.diagnostic_contract import (
     COMMON_DIAGNOSTIC_KEYS,
     normalize_diagnostics,
 )
+
+from medre.adapters.simplexchat.adapter import SimplexChatAdapter
+from medre.adapters.simplexchat.fake import FakeSimplexChatAdapter
 
 
 def test_real_diagnostics_preserve_reported_native_health(config):

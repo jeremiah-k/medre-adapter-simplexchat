@@ -12,13 +12,12 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
+from conftest import NOW, info, item
+from medre.core.rendering.renderer import RenderingContext
 
 from medre.adapters.simplexchat.codec import SimplexChatCodec
 from medre.adapters.simplexchat.metadata import project_attribution
 from medre.adapters.simplexchat.renderer import SimplexChatRenderer
-from medre.core.rendering.renderer import RenderingContext
-
-from conftest import NOW, info, item
 
 try:
     from medre.adapters.matrix.metadata import build_matrix_metadata_content
@@ -245,6 +244,7 @@ def test_explicit_full_metadata_export_discloses_member_id(config):
     """Full mode embeds the namespace verbatim; selecting it discloses member_id."""
     import json
     from pathlib import Path
+
     from jsonschema import Draft202012Validator
 
     content = build_matrix_metadata_content(member_event(config), "full")
@@ -316,6 +316,7 @@ def test_native_namespace_timestamp_and_label_semantics_are_unchanged(config):
 def test_member_role_bound_matches_native_schema(config, length, accepted):
     import json
     from pathlib import Path
+
     from jsonschema import Draft202012Validator
 
     row = profiled_item()

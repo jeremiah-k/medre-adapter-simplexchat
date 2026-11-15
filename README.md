@@ -245,3 +245,8 @@ campaign require a separate live qualification run.
 The [provider contract](docs/spec/simplexchat.md) and
 [configuration schema](docs/schemas/config.schema.json) describe the runtime
 boundaries and versioned metadata projection.
+
+## Development tooling
+
+See [contributing](CONTRIBUTING.md) for the shared Trunk quality gate and uv-based
+editable development workflow.

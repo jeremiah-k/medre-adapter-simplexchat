@@ -3,10 +3,10 @@
 import json
 
 import pytest
-
 from conftest import NativeSession, attempt, rendered
-from medre.adapters.simplexchat.adapter import SimplexChatAdapter
 from medre.core.contracts.adapter import AdapterPermanentError
+
+from medre.adapters.simplexchat.adapter import SimplexChatAdapter
 
 
 def quote_payload(ref, *, fallback="[quoted] previous\nRendered message"):

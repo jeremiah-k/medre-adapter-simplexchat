@@ -7,8 +7,7 @@ import json
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
-
-from medre.core.supervision.diagnostic_contract import COMMON_DIAGNOSTIC_KEYS
+from typing import Any
 
 from medre.core.contracts.adapter import (
     AdapterCapabilities,
@@ -20,10 +19,9 @@ from medre.core.contracts.adapter import (
     AdapterRole,
     AdapterSendError,
 )
-from typing import Any
-
 from medre.core.ingress import IngressProvenance
 from medre.core.rendering.renderer import RenderingResult
+from medre.core.supervision.diagnostic_contract import COMMON_DIAGNOSTIC_KEYS
 
 from .codec import SimplexChatCodec, chat_channel
 from .config import SimplexChatConfig, plain_text

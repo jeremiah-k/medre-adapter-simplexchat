@@ -3,12 +3,11 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
+from conftest import NativeSession, attempt, item, rendered, wait_until
+from medre.core.contracts.adapter import AdapterPermanentError
 
 from medre.adapters.simplexchat.adapter import SimplexChatAdapter
 from medre.adapters.simplexchat.state import ProfileLease
-from medre.core.contracts.adapter import AdapterPermanentError
-
-from conftest import NativeSession, attempt, item, rendered, wait_until
 
 
 def test_exclusive_profile_namespace_survives_ownership_release(config):
@@ -233,8 +232,9 @@ async def test_not_ready_is_retryable_and_does_not_reserve(config, context):
 
 
 async def test_unavailable_before_write_releases_handoff_reservation(config, context):
-    from medre.adapters.simplexchat.session import SessionUnavailable
     from medre.core.contracts.adapter import AdapterSendError
+
+    from medre.adapters.simplexchat.session import SessionUnavailable
 
     class PrewriteFailure(NativeSession):
         fail_before_write = True
@@ -263,9 +263,9 @@ async def test_unavailable_before_write_releases_handoff_reservation(config, con
 
 
 def test_release_cannot_remove_confirmed_reservation(config):
-    from medre.adapters.simplexchat.state import HandoffLedger
-
     from pathlib import Path
+
+    from medre.adapters.simplexchat.state import HandoffLedger
 
     ledger = HandoffLedger(Path(config.state_dir) / "handoffs.sqlite")
     try:
@@ -304,6 +304,7 @@ def test_accepted_simplex_attempt_survives_renderer_upgrade_without_duplicate_se
 ):
     """Retained native acceptance wins over changed text for the same attempt."""
     from pathlib import Path
+
     from medre.adapters.simplexchat.state import HandoffLedger
 
     ledger = HandoffLedger(Path(config.state_dir) / "upgrade-handoffs.sqlite")

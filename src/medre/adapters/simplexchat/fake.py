@@ -5,9 +5,6 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import msgspec
-
-from medre.core.supervision.diagnostic_contract import COMMON_DIAGNOSTIC_KEYS
-
 from medre.core.contracts.adapter import (
     AdapterContext,
     AdapterHandoffResult,
@@ -16,6 +13,7 @@ from medre.core.contracts.adapter import (
 )
 from medre.core.events.canonical import CanonicalEvent
 from medre.core.rendering.renderer import RenderingResult
+from medre.core.supervision.diagnostic_contract import COMMON_DIAGNOSTIC_KEYS
 
 from .adapter import SimplexChatAdapter, validate_payload
 from .codec import SimplexChatCodec

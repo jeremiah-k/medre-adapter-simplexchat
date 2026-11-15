@@ -4,16 +4,15 @@ from dataclasses import replace
 
 import msgspec
 import pytest
+from conftest import info, item, rendered
+from medre.config.loader import parse_runtime_config
+from medre.config.paths import resolve
+from medre.core.rendering.renderer import RenderingContext
 
 from medre.adapters.simplexchat.codec import SimplexChatCodec
 from medre.adapters.simplexchat.config import conversation, prepare_config
 from medre.adapters.simplexchat.fake import FakeSimplexChatAdapter
 from medre.adapters.simplexchat.renderer import SimplexChatRenderer
-from medre.config.loader import parse_runtime_config
-from medre.config.paths import resolve
-from medre.core.rendering.renderer import RenderingContext
-
-from conftest import info, item, rendered
 
 
 @pytest.mark.parametrize(

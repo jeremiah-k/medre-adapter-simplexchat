@@ -29,7 +29,7 @@ supplementary. A group message from a member whose profile says
 test keeps excluding `groupInfo.privateKey`; `memberId` is captured because
 the protocol defines it as a shared member ID transmitted to all group
 members, not key material. `metadata_fields` in the core capability profile
-stays `false`: the contract semantic is the adapter's ability to *transmit*
+stays `false`: the contract semantic is the adapter's ability to _transmit_
 structured metadata fields, and the SimpleX outbound payload remains plain
 text; the namespace and public facts are inbound capture that rides other
 destinations' carriers.

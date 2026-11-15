@@ -1,8 +1,7 @@
 import pytest
+from conftest import info, item
 
 from medre.adapters.simplexchat.worker import NativeEvents
-
-from conftest import info, item
 
 
 def event(number=1, user=1, **updates):
