@@ -4,11 +4,11 @@ import json
 from pathlib import Path
 
 import pytest
+from conftest import info, item
 from jsonschema import Draft202012Validator, ValidationError
 
 from medre.adapters.simplexchat.codec import SimplexChatCodec
 from medre.adapters.simplexchat.sample import sample_config
-from conftest import info, item
 
 
 def schema(name):

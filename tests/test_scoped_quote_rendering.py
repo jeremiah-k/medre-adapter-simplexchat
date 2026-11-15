@@ -1,12 +1,12 @@
 """Core-bound SimpleX reply rendering must preserve scoped destination identity."""
 
 import msgspec
-
 from conftest import info, item
-from medre.adapters.simplexchat.codec import SimplexChatCodec
-from medre.adapters.simplexchat.renderer import SimplexChatRenderer
 from medre.core.events.canonical import EventRelation, RelationTargetFact
 from medre.core.rendering.renderer import RenderingContext
+
+from medre.adapters.simplexchat.codec import SimplexChatCodec
+from medre.adapters.simplexchat.renderer import SimplexChatRenderer
 
 
 def test_codec_rejects_cross_profile_chat_user_or_noncanonical_ids(config):

@@ -89,6 +89,7 @@ async def test_pinned_send_messages_serializes_quote_into_native_command(
 @pytest.mark.parametrize("chat_type, address", [("group", "#1"), ("direct", "@1")])
 async def test_pinned_sdk_native_item_inspection_preserves_scope(chat_type, address):
     from simplex_chat.api import ChatApi
+
     from medre.adapters.simplexchat.worker import quote_target_available
 
     info = (

@@ -233,7 +233,7 @@ Run tests from a development environment containing core and this provider:
 ```bash
 python -m pytest -q
 python -m simplex_chat install
-python -m pytest -q -m simplexchat_sdk
+python -m pytest -q -m "simplexchat_sdk and not local_integration and not soak and not live and not hardware and not docker"
 ```
 
 The default suite uses deterministic SDK boundaries and real subprocess ownership
@@ -245,3 +245,8 @@ campaign require a separate live qualification run.
 The [provider contract](docs/spec/simplexchat.md) and
 [configuration schema](docs/schemas/config.schema.json) describe the runtime
 boundaries and versioned metadata projection.
+
+## Development tooling
+
+See [contributing](CONTRIBUTING.md) for the shared Trunk quality gate and uv-based
+editable development workflow.

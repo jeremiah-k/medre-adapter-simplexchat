@@ -14,9 +14,9 @@ import shlex
 import subprocess
 import sys
 
+import medre.adapter_spec as core_adapter_spec
 import pytest
 
-import medre.adapter_spec as core_adapter_spec
 from medre.adapters.simplexchat import cli
 from medre.adapters.simplexchat.plugin import adapter_spec
 from medre.adapters.simplexchat.setup_journey import (

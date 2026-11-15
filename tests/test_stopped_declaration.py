@@ -14,9 +14,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-
-from medre.adapters.simplexchat.plugin import adapter_spec
-from medre.adapters.simplexchat.stopped_declaration import declaration
 from medre.maintenance.stopped_declare import (
     DeclaredFile,
     ExclusionRefused,
@@ -25,8 +22,11 @@ from medre.maintenance.stopped_declare import (
     declared,
     plan_from_coverages,
 )
-from medre.maintenance.stopped_snapshot import create_stopped_snapshot
 from medre.maintenance.stopped_inventory import StoppedInventory
+from medre.maintenance.stopped_snapshot import create_stopped_snapshot
+
+from medre.adapters.simplexchat.plugin import adapter_spec
+from medre.adapters.simplexchat.stopped_declaration import declaration
 
 
 def _write(path: Path, payload: bytes = b"x") -> Path:

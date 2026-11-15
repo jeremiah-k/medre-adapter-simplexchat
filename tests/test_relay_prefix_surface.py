@@ -4,13 +4,12 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
+from conftest import info, item
+from medre.core.rendering.renderer import RenderingContext
 
 from medre.adapters.simplexchat.codec import SimplexChatCodec
 from medre.adapters.simplexchat.config import SimplexChatConfig
 from medre.adapters.simplexchat.renderer import SimplexChatRenderer
-from medre.core.rendering.renderer import RenderingContext
-
-from conftest import info, item
 
 DEFAULT_RELAY_PREFIX = "[{origin_label}] {sender}: "
 
