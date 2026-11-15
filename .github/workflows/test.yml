@@ -104,7 +104,7 @@ jobs:
         if: matrix.mode == 'sdk'
         env:
           XDG_CACHE_HOME: ${{ runner.temp }}/simplex-native-cache
-        run: .core/.venv/bin/python -m pytest -q -m simplexchat_sdk --cov=medre.adapters.simplexchat --cov-branch --cov-report=xml:coverage-sdk.xml --junitxml=junit-sdk.xml
+        run: .core/.venv/bin/python -m pytest -q -m "simplexchat_sdk and not local_integration and not soak and not live and not hardware and not docker" --cov=medre.adapters.simplexchat --cov-branch --cov-report=xml:coverage-sdk.xml --junitxml=junit-sdk.xml
       - name: Prove fake routing through the installed CLI
         if: matrix.mode == 'fake'
         env:

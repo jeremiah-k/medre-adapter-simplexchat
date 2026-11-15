@@ -233,7 +233,7 @@ Run tests from a development environment containing core and this provider:
 ```bash
 python -m pytest -q
 python -m simplex_chat install
-python -m pytest -q -m simplexchat_sdk
+python -m pytest -q -m "simplexchat_sdk and not local_integration and not soak and not live and not hardware and not docker"
 ```
 
 The default suite uses deterministic SDK boundaries and real subprocess ownership
