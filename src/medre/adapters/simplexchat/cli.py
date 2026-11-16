@@ -170,10 +170,10 @@ async def execute(
                 "out": str(path),
             }
         if options.command == "create-link":
-            link = await session.call("create_group_link", group_id=options.group_id)
-            path = _export_link(options.out, link)
+            record = await session.call("create_group_link", group_id=options.group_id)
+            path = _export_link(options.out, record["link"])
             return {
-                "group_link_created": True,
+                "group_link_created": bool(record["created"]),
                 "group_id": options.group_id,
                 "out": str(path),
             }

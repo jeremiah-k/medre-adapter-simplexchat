@@ -46,7 +46,7 @@ class Profile:
         if op == "create_address":
             return {"created": True, "link": "simplex:address#secret-token"}
         if op == "create_group_link":
-            return "https://simplex.chat/n/invite#secret-token"
+            return {"created": True, "link": "https://simplex.chat/n/invite#secret-token"}
         if op == "connection_status":
             return True
         return None

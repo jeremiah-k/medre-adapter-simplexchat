@@ -14,6 +14,32 @@ if TYPE_CHECKING:
     from simplex_chat.types import T
 
 
+async def ensure_group_link(api: Any, group_id: int) -> dict[str, Any]:
+    """Create once or export the existing member-role link under the profile lease."""
+    from simplex_chat.core import ChatAPIError
+
+    if type(group_id) is not int or not 1 <= group_id <= 2**63 - 1:
+        raise ValueError("Invalid native group identity")
+    created = False
+    try:
+        record = await api.api_get_group_link(group_id)
+    except ChatAPIError as exc:
+        # Only authoritative absence authorizes creation. A failed read for
+        # any other reason must not be interpreted as a missing link.
+        if exc.store_error_type != "groupLinkNotFound":
+            raise
+        await api.api_create_group_link(group_id, "member")
+        created = True
+        record = await api.api_get_group_link(group_id)
+    if record.get("acceptMemberRole") != "member":
+        raise RuntimeError("Existing native group link does not grant member role")
+    conn = record.get("connLinkContact") or {}
+    link = conn.get("connShortLink") or conn.get("connFullLink")
+    if not isinstance(link, str) or not link:
+        raise RuntimeError("Native group link is unavailable")
+    return {"created": created, "link": link}
+
+
 async def quote_target_available(
     api: Any, *, user_id: int, chat_type: str, chat_id: int, item_id: int
 ) -> bool:
@@ -239,6 +265,8 @@ async def main() -> None:
                         created = await api.api_get_user_address(user_id) is None
                         if created:
                             await api.api_create_user_address(user_id)
+                        # acceptIncognito controls the accepting bot's profile,
+                        # not admission of an incognito remote peer.
                         await api.api_set_address_settings(
                             user_id,
                             {
@@ -247,16 +275,22 @@ async def main() -> None:
                             },
                         )
                         record = await api.api_get_user_address(user_id)
+                        address_settings = (record or {}).get("addressSettings") or {}
+                        auto_accept = address_settings.get("autoAccept") or {}
+                        if (
+                            address_settings.get("businessAddress") is not False
+                            or auto_accept.get("acceptIncognito") is not False
+                        ):
+                            raise RuntimeError(
+                                "Native address settings were not confirmed"
+                            )
                         conn = (record or {}).get("connLinkContact") or {}
                         address_link = conn.get("connFullLink")
                         if not isinstance(address_link, str) or not address_link:
                             raise RuntimeError("Native address link is unavailable")
                         result = {"created": created, "link": address_link}
                     elif operation == "create_group_link":
-                        group_id = args["group_id"]
-                        if type(group_id) is not int or not 1 <= group_id <= 2**63 - 1:
-                            raise ValueError("Invalid native group identity")
-                        result = await api.api_create_group_link(group_id, "member")
+                        result = await ensure_group_link(api, args["group_id"])
                     else:
                         raise ValueError("Unsupported native operation")
                     emit(kind="result", id=command["id"], result=result)
