@@ -46,7 +46,10 @@ class Profile:
         if op == "create_address":
             return {"created": True, "link": "simplex:address#secret-token"}
         if op == "create_group_link":
-            return {"created": True, "link": "https://simplex.chat/n/invite#secret-token"}
+            return {
+                "created": True,
+                "link": "https://simplex.chat/n/invite#secret-token",
+            }
         if op == "connection_status":
             return True
         return None
@@ -438,4 +441,6 @@ async def test_private_export_unsupported_platform_refuses_before_start(
         raise AssertionError("must not start native session")
 
     with pytest.raises(cli.UsageError, match="POSIX"):
-        await cli.execute(cli.parser().parse_args(args), config, session_factory=factory)
+        await cli.execute(
+            cli.parser().parse_args(args), config, session_factory=factory
+        )
