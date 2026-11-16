@@ -140,9 +140,7 @@ async def test_group_link_creation_writes_private_link_only_into_owner_file(
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX private link export")
-async def test_link_creation_replaces_existing_readable_inode(
-    config, tmp_path
-):
+async def test_link_creation_replaces_existing_readable_inode(config, tmp_path):
     destination = tmp_path / "loose.link"
     destination.write_text("stale operator file\n")
     destination.chmod(0o644)
@@ -409,14 +407,17 @@ def test_link_export_does_not_modify_another_inode(tmp_path, kind):
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX private link export")
-def test_failed_link_replace_keeps_old_file_and_removes_temporary(tmp_path, monkeypatch):
+@pytest.mark.parametrize("operation", ["fchmod", "fsync", "replace"])
+def test_failed_link_export_keeps_old_file_and_removes_temporary(
+    tmp_path, monkeypatch, operation
+):
     destination = tmp_path / "invite.link"
     destination.write_text("old")
 
     def fail(*args):
         raise OSError("secret-token")
 
-    monkeypatch.setattr(cli.os, "replace", fail)
+    monkeypatch.setattr(cli.os, operation, fail)
     with pytest.raises(cli.UsageError, match="correct --out") as exc:
         cli._export_link(str(destination), "https://simplex.chat/invite#secret-token")
     assert "secret-token" not in str(exc.value)

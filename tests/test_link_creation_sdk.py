@@ -133,3 +133,19 @@ async def test_group_link_export_refuses_other_roles_without_mutation(role):
         await ensure_group_link(api, 9)
     api.api_create_group_link.assert_not_awaited()
     api.api_set_group_link_member_role.assert_not_awaited()
+
+
+async def test_existing_group_link_uses_full_link_when_short_link_is_absent():
+    from medre.adapters.simplexchat.worker import ensure_group_link
+
+    api = AsyncMock()
+    api.api_get_group_link.return_value = {
+        "acceptMemberRole": "member",
+        "connLinkContact": {"connFullLink": "simplex:/group#synthetic"},
+    }
+    assert await ensure_group_link(api, 9) == {
+        "created": False,
+        "link": "simplex:/group#synthetic",
+    }
+    api.api_create_group_link.assert_not_awaited()
+    api.api_set_group_link_member_role.assert_not_awaited()
