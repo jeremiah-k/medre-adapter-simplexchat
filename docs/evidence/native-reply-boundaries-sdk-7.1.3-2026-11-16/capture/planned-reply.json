@@ -1,0 +1,20 @@
+{
+  "tested_core_commit": "989f44336e1f009ca89d7b50c8bbe0794ca251a6",
+  "tested_provider_commit": "72328a92ea21229222ec04bd34745a19ac653c9a",
+  "sdk_version": "7.1.3",
+  "adapter_source_sha256": "a416aeaddbf2226b3b220afbb74b429dc76d38b58f8babf0ec89384986791f54",
+  "event_id": "f8351db7-116b-582c-ae62-13e43a157516",
+  "nonce": "planned-0b11259aad8d",
+  "delivery_strategy": "direct",
+  "receipt_status": "sent",
+  "recipient": {
+    "item_id": 32,
+    "item_ts": "2026-11-16T13:42:37Z",
+    "quote_id": 28,
+    "quote_text": "[Campaign upstream] Bob Smith: group_parent nonce=gp3-c58a6337",
+    "text": "[Campaign upstream] Bob Smith: planned_reply nonce=planned-0b11259aad8d"
+  },
+  "native_strategy_override": false,
+  "scope": "Real RuntimeBuilder, durable core receipt/storage, relation binding, candidate adapter capability, native worker and independent recipient; one synthetic group reply.",
+  "teardown": "runtime stopped, observer exited zero"
+}

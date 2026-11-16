@@ -1,0 +1,8 @@
+{"kind": "observer_started", "monotonic_ns": 86161664900302, "pid": 257073, "sdk": "7.1.3", "utc": "2026-11-16T13:42:34.441570+00:00"}
+{"items": [], "kind": "recipient_snapshot", "monotonic_ns": 86161974341015, "utc": "2026-11-16T13:42:34.751007+00:00"}
+{"items": [], "kind": "recipient_snapshot", "monotonic_ns": 86163210504516, "utc": "2026-11-16T13:42:35.987173+00:00"}
+{"items": [], "kind": "recipient_snapshot", "monotonic_ns": 86164241430781, "utc": "2026-11-16T13:42:37.018100+00:00"}
+{"items": [], "kind": "recipient_snapshot", "monotonic_ns": 86165282802540, "utc": "2026-11-16T13:42:38.059470+00:00"}
+{"item_id": 32, "item_ts": "2026-11-16T13:42:37Z", "kind": "recipient_event", "monotonic_ns": 86165361273428, "quote_id": 28, "quote_text": "[Campaign upstream] Bob Smith: group_parent nonce=gp3-c58a6337", "text": "[Campaign upstream] Bob Smith: planned_reply nonce=planned-0b11259aad8d", "utc": "2026-11-16T13:42:38.137940+00:00"}
+{"items": [{"item_id": 32, "item_ts": "2026-11-16T13:42:37Z", "quote_id": 28, "quote_text": "[Campaign upstream] Bob Smith: group_parent nonce=gp3-c58a6337", "text": "[Campaign upstream] Bob Smith: planned_reply nonce=planned-0b11259aad8d"}], "kind": "recipient_snapshot", "monotonic_ns": 86166392550574, "utc": "2026-11-16T13:42:39.169218+00:00"}
+{"kind": "observer_stopped", "monotonic_ns": 86166915099557, "pid": 257073, "utc": "2026-11-16T13:42:39.691769+00:00"}
