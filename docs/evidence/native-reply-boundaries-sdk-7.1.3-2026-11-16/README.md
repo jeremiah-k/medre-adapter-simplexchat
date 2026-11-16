@@ -32,7 +32,12 @@ Native replies retain scope verification and readable target fallback; threads
 remain fallback. No retry or delivery-confirmation semantics change.
 
 Offline tests verify record consistency and causal ordering, not observation
-authenticity. The callback storage sinks are not a full routed core-storage
+authenticity. The sender trace accounts for the four recorded native sends
+(two handoffs and two barriers) within their respective worker lifetimes. For
+observed deliveries, captured text hashes match the recorded send-body hashes.
+The tests bind the summary to the terminal case record and the recipient
+observer's identity, SDK and lifecycle. They do not independently verify the
+unretained sender-history snapshots or profile-lease reacquisition. The callback storage sinks are not a full routed core-storage
 proof. Other SDKs, platforms, official deployment and sustained load are outside
 this native campaign. Original evidence remains unchanged.
 
@@ -44,7 +49,12 @@ The real RuntimeBuilder used its normal capability-driven routing, relation
 binding, rendering and durable receipt/storage path. No delivery strategy was
 forced: the receipt reports `direct` and `sent`, and the independent recipient
 received one scoped quote to its local parent item 28. The [recipient stream](capture/planned-recipient.jsonl)
-retains that observation and complete lifecycle. This one routed probe supplements
+retains that observation and observer lifecycle. The offline checks require the
+live recipient event and matching history, verify the intended parent text, and
+reject any different recipient item ID carrying the nonce across the stream.
+The probe does not retain a sender trace or an independently measured observation
+window; the durable receipt and clean runtime stop are recorded in its summary.
+This one routed probe supplements
 the handoff-boundary cases; their callback-sink scope remains distinct.
 
 ## Harness and clock interpretation
