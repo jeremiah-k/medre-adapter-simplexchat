@@ -9,6 +9,7 @@ import json
 import math
 import os
 import sys
+import tempfile
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -99,13 +100,16 @@ async def execute(
     ):
         raise UsageError("The bot display name must be nonempty text")
     if options.command in {"accept-group", "create-link"} and (
-        type(options.group_id) is not int or options.group_id <= 0
+        type(options.group_id) is not int or not 1 <= options.group_id <= 2**63 - 1
     ):
-        raise UsageError("--group-id must be positive")
-    if options.command in {"create-address", "create-link"} and (
-        not plain_text(options.out) or not options.out.strip()
-    ):
-        raise UsageError("--out must be nonempty text")
+        raise UsageError("--group-id must be a positive native int64")
+    if options.command in {"create-address", "create-link"}:
+        if not plain_text(options.out) or not options.out.strip():
+            raise UsageError("--out must be nonempty text")
+        # Windows chmod does not establish an owner-only ACL. Refuse before
+        # any native mutation rather than publishing a readable capability.
+        if os.name != "posix" or not hasattr(os, "fchmod"):
+            raise UsageError("Private link export requires POSIX file permissions")
     if options.command in {"join", "accept-group", "connect"} and (
         not math.isfinite(options.wait_seconds) or options.wait_seconds <= 0
     ):
@@ -159,7 +163,7 @@ async def execute(
             }
         if options.command == "create-address":
             record = await session.call("create_address")
-            path = _write_link(options.out, record["link"])
+            path = _export_link(options.out, record["link"])
             return {
                 "address_created": bool(record["created"]),
                 "auto_accept": True,
@@ -167,7 +171,7 @@ async def execute(
             }
         if options.command == "create-link":
             link = await session.call("create_group_link", group_id=options.group_id)
-            path = _write_link(options.out, link)
+            path = _export_link(options.out, link)
             return {
                 "group_link_created": True,
                 "group_id": options.group_id,
@@ -216,15 +220,48 @@ def _write_link(destination: str, link: str) -> Path:
     """Persist one private connection link into an owner-only operator file.
 
     Connection links grant native connectivity, so they never cross the
-    command output; the operator-selected file is the only durable copy.
+    command output. Export into a fresh inode in the operator-selected directory.
     """
     path = Path(destination)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    os.fchmod(descriptor, 0o600)
-    with os.fdopen(descriptor, "w") as handle:
-        handle.write(link + "\n")
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            dir=path.parent,
+            prefix=".medre-link-",
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            os.fchmod(handle.fileno(), 0o600)
+            handle.write(link + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        # Replace the entry, never open the old inode or follow its symlink.
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
     return path
+
+
+def _export_link(destination: str, link: str) -> Path:
+    if (
+        not isinstance(link, str)
+        or not link.isprintable()
+        or not link.startswith(("simplex:", "https://"))
+    ):
+        raise UsageError("Native connection link is unavailable")
+    try:
+        return _write_link(destination, link)
+    except OSError:
+        raise UsageError(
+            "Private link export failed; correct --out and repeat the command "
+            "to export the existing link"
+        ) from None
 
 
 def main(argv: list[str] | None = None) -> int:
