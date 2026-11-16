@@ -15,8 +15,8 @@ def configure_parser(result: argparse.ArgumentParser, *, command_dest: str) -> N
         ("contacts", "List local direct conversation IDs"),
         ("join", "Connect using a private group/contact link"),
         ("create-group", "Create a bot-owned group"),
-        ("create-address", "Create the contact address and write its link to a file"),
-        ("create-link", "Create a group invitation link and write it to a file"),
+        ("create-address", "Create or export the contact address link (POSIX only)"),
+        ("create-link", "Create or export a member-role group link (POSIX only)"),
         ("accept-group", "Accept an existing group invitation"),
         ("connect", "Resume pending native connections for a bounded interval"),
     ):
@@ -49,7 +49,7 @@ def configure_parser(result: argparse.ArgumentParser, *, command_dest: str) -> N
             command.add_argument(
                 "--out",
                 required=True,
-                help="Write the private connection link into this owner-only file",
+                help="Atomically replace this owner-only file with the private link",
             )
         if name == "create-link":
             command.add_argument("--group-id", type=int, required=True)

@@ -63,10 +63,9 @@ STEPS: tuple[tuple[str, str, str], ...] = (
     ),
     (
         "medre adapter simplexchat create-address --adapter sx --out address.link",
-        "Create this profile's contact address with auto-accept enabled and "
-        "write its private connection link into the named owner-only file; "
-        "an existing address is retained and only its settings are "
-        "refreshed.",
+        "Create or retain this profile's contact address with normal-profile "
+        "auto-accept and write its private connection link into the named "
+        "owner-only file on POSIX. This does not reject incognito peers.",
         "Proves the profile owns a native contact address with auto-accept "
         "enabled and that its connection link was written only into the "
         "owner-only file. The link never appears in command output, and a "
@@ -116,13 +115,13 @@ STEPS: tuple[tuple[str, str, str], ...] = (
     (
         "medre adapter simplexchat create-link --adapter sx "
         "--group-id ID --out group.link",
-        "Create an invitation link for a local group reported by groups and "
-        "write it into the named owner-only file.",
-        "Proves the profile created a native group invitation link and "
-        "wrote it only into the owner-only file. The link never appears in "
-        "command output, and an introduced member still needs explicit "
-        "acceptance before membership: not relay acceptance, delivery, or "
-        "read evidence, and grants no send authority.",
+        "Create or export the existing member-role invitation link for a "
+        "local group reported by groups into the named owner-only file on POSIX.",
+        "Proves the profile has a native group invitation link and exported "
+        "it into the owner-only file. The link never appears in command "
+        "output. Group-link joins may be accepted automatically; inspect "
+        "native membership and admission policy separately. This is not relay "
+        "acceptance, delivery, or read evidence, and grants no send authority.",
     ),
     (
         "medre adapter simplexchat contacts --adapter sx",

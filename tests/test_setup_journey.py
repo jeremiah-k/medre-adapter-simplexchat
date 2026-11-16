@@ -41,7 +41,7 @@ EXPECTED_STEP_MARKERS = {
     "accept-group": ("membership state",),
     "connect": ("does not establish group membership",),
     "create-group": ("not witnessed here",),
-    "create-link": ("owner-only file", "explicit acceptance"),
+    "create-link": ("owner-only file", "accepted automatically", "admission policy"),
     "contacts": ("independently witnessed",),
 }
 

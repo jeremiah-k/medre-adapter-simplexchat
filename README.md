@@ -20,7 +20,9 @@ Use immutable Git revisions for reproducible deployments. The provider pins the
 released official `simplex-chat` package at the manifest pin. Its native library is downloaded
 on first initialization; no separate CLI daemon or unofficial wrapper is needed.
 The SDK supports Linux, macOS and Windows on its published architectures; CI
-qualifies Linux x86-64. This adapter's code is MIT licensed. The official SDK and
+qualifies Linux x86-64. The new private-link export commands require POSIX
+file permissions; they reject non-POSIX platforms before native mutation.
+This restriction does not change the other commands. This adapter's code is MIT licensed. The official SDK and
 native library carry their own AGPL-3.0 license.
 
 For a persistent MEDRE tool installation, `medre adapters install simplexchat`
@@ -109,14 +111,27 @@ the command keeps native networking active for up to `--wait-seconds` (60 by
 default). The remote peer may need to approve.
 
 The profile can also originate connections. `create-address --adapter sx --out PATH`
-creates the profile's contact address with auto-accept enabled (an existing
-address is retained and only its settings refresh) and writes its private
-connection link into the named file, created with owner-only permissions.
-`create-link --adapter sx --group-id ID --out PATH` creates an invitation
-link for a local group reported by `groups` and writes it the same way. Link
-material never appears in command output; peers complete the connection while
-`connect --adapter sx` keeps native networking active, and a member introduced
-through a group link still needs explicit acceptance before membership.
+creates or retains the profile's contact address and sets auto-accept using the
+bot's normal profile (not a business address). This does not reject incognito
+remote peers. `create-link --adapter sx --group-id ID --out PATH` creates or
+exports the existing member-role invitation for a local group reported by
+`groups`. Existing links with another role are refused, not changed. The
+`address_created` and `group_link_created` result fields indicate whether a new
+native link was created, not whether export succeeded on a prior invocation.
+
+Both export commands require POSIX owner-only file permissions. Use an
+operator-controlled output directory on a filesystem that enforces them.
+The command writes a fresh `0600` file and atomically replaces the destination
+entry, including a symlink entry without following its target. It does not
+modify an existing inode, even if it has other hard links or open readers.
+Link material is never printed. If export fails after native creation,
+correct `--out` and repeat the same command against the same profile and group;
+the existing link is retained. An interrupted process may leave an owner-only
+temporary file in the output directory. Treat it as private too.
+Peers complete the connection while `connect --adapter sx` keeps native
+networking active. Group-link joins may complete without a separate approval
+step. Configure and verify native admission policy separately if approval is
+required; these commands do not enforce it.
 
 Provisioning completes with explicit actions. `accept-group --adapter sx --group-id ID`
 accepts an invited group, `connect --adapter sx` resumes pending native
@@ -136,10 +151,10 @@ Read each result at its true evidence level:
 - Group/member/contact IDs are local to this dedicated profile; they are not
   global SimpleX identities.
 - `create-address` and `create-link` prove local native state only. The written
-  link is the capability to connect, so keep its owner-only file private; a
-  member introduced through a group link still needs explicit acceptance before
-  membership. Creating a link is not relay acceptance, delivery, or read
-  evidence.
+  link is the capability to connect, so keep its owner-only file private.
+  Inspect native membership and admission policy independently; a group-link
+  join may be accepted automatically. Creating or exporting a link is not
+  relay acceptance, delivery, or read evidence.
 - A linked contact is not an independently witnessed delivery. Nothing above
   proves a peer received a message: outbound acceptance confirms only the
   native local queue, and health describes the local native session, not peer
