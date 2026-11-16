@@ -1,0 +1,42 @@
+{
+  "case": "origin_attribution",
+  "group_items_recipient_view": [
+    {
+      "itemId": 20,
+      "direction": "groupRcv",
+      "sender_display": "MEDRE bridge",
+      "text_prefix": "[Campaign upstream] Bob Smith: group_parent nonce=gpar-7b2667a5"
+    },
+    {
+      "itemId": 24,
+      "direction": "groupRcv",
+      "sender_display": "MEDRE bridge",
+      "text_prefix": "[Campaign upstream] Bob Smith: group_quote nonce=gq1-c7357767"
+    }
+  ],
+  "direct_items_recipient_view": [
+    {
+      "itemId": 21,
+      "direction": "directRcv",
+      "sender_display": null,
+      "text_prefix": "[Campaign upstream] Bob Smith: direct_parent nonce=dp1-c20b10ce"
+    },
+    {
+      "itemId": 22,
+      "direction": "directRcv",
+      "sender_display": null,
+      "text_prefix": "[Campaign upstream] Bob Smith: [replying to: earlier upstream message "
+    },
+    {
+      "itemId": 23,
+      "direction": "directRcv",
+      "sender_display": null,
+      "text_prefix": "[Campaign upstream] Bob Smith: direct_quote nonce=dr2-d673db25"
+    }
+  ],
+  "checks": {
+    "relay_prefix_readable": "[Campaign upstream] Bob Smith: ",
+    "bridge_member_profile_recipient_view": "MEDRE bridge",
+    "peer_declared_source_display_name": "Bob Smith"
+  }
+}

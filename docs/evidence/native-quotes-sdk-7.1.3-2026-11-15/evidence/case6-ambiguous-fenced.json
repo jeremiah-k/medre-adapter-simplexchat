@@ -1,0 +1,56 @@
+{
+  "case": "ambiguous_submission_fenced",
+  "recipient_observed_copies": 0,
+  "recipient_stream_matches": [],
+  "sender_native_history_message_items": [
+    {
+      "itemId": 27,
+      "itemTs": "2026-11-16T04:58:58Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndMsgContent",
+      "text": "[Campaign upstream] Bob Smith: [replying to: earlier upstream message] fallback_reply nonce=fr1-702ce0e2",
+      "quotedItem": null
+    },
+    {
+      "itemId": 28,
+      "itemTs": "2026-11-16T05:02:04Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndMsgContent",
+      "text": "[Campaign upstream] Bob Smith: group_parent nonce=gp2-1b5674fb",
+      "quotedItem": null
+    },
+    {
+      "itemId": 29,
+      "itemTs": "2026-11-16T05:06:03Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndMsgContent",
+      "text": "[Campaign upstream] Bob Smith: boundary_case nonce=rs1-87f00bb9",
+      "quotedItem": {
+        "itemId": 28,
+        "sentAt": "2026-11-16T05:02:04Z",
+        "contentType": "text",
+        "text": "[Campaign upstream] Bob Smith: group_parent nonce=gp2-1b5674fb"
+      }
+    },
+    {
+      "itemId": 30,
+      "itemTs": "2026-11-16T05:08:39Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndMsgContent",
+      "text": "[Campaign upstream] Bob Smith: group_parent nonce=gp3-c58a6337",
+      "quotedItem": null
+    }
+  ],
+  "sender_native_history_us1_count": 0,
+  "fenced_ledger_row": {
+    "outbox": "3b2b75ea7c4645f0882dc04afe7d8b0a",
+    "attempt": 1,
+    "native_id": null
+  },
+  "fault_injection": "worker process group SIGKILL immediately after send command bytes drained (deterministic)",
+  "redrive_attempts": ["attempt2 fenced", "attempt3 fenced"]
+}

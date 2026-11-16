@@ -1,0 +1,164 @@
+{
+  "channel": {
+    "type": "group",
+    "chatId": "1"
+  },
+  "items": [
+    {
+      "itemId": 8,
+      "itemTs": "1970-01-01T00:00:00Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "chatBanner",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 9,
+      "itemTs": "2026-11-16T04:23:07Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupE2EEInfo",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 10,
+      "itemTs": "2026-11-16T04:23:07Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupFeature",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 11,
+      "itemTs": "2026-11-16T04:23:07Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupFeature",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 12,
+      "itemTs": "2026-11-16T04:23:07Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupFeature",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 13,
+      "itemTs": "2026-11-16T04:23:07Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupFeature",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 14,
+      "itemTs": "2026-11-16T04:23:08Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupFeature",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 15,
+      "itemTs": "2026-11-16T04:23:08Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupFeature",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 16,
+      "itemTs": "2026-11-16T04:23:08Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupFeature",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 17,
+      "itemTs": "2026-11-16T04:23:08Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupFeature",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 18,
+      "itemTs": "2026-11-16T04:23:08Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupFeature",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 19,
+      "itemTs": "2026-11-16T04:23:08Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndGroupFeature",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 20,
+      "itemTs": "2026-11-16T04:25:40Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupEvent",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 2,
+        "localDisplayName": "Morgan Tate",
+        "memberRole": "member",
+        "memberStatus": "connected",
+        "displayName": "Morgan Tate",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 21,
+      "itemTs": "2026-11-16T04:30:22Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupEvent",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 2,
+        "localDisplayName": "Morgan Tate",
+        "memberRole": "member",
+        "memberStatus": "connected",
+        "displayName": "Morgan Tate",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 26,
+      "itemTs": "2026-11-16T04:56:06Z",
+      "itemDeleted": null,
+      "direction": "groupSnd",
+      "contentType": "sndMsgContent",
+      "text": "[Campaign upstream] Bob Smith: group_quote nonce=gq1-c7357767",
+      "quotedItem": {
+        "itemId": null,
+        "sentAt": "2026-11-16T04:34:44Z",
+        "contentType": "text",
+        "text": "[Campaign upstream] Bob Smith: group_parent nonce=gpar-7b2667a5"
+      }
+    }
+  ]
+}

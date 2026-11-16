@@ -1,0 +1,112 @@
+{
+  "channel": {
+    "type": "direct",
+    "chatId": "3"
+  },
+  "items": [
+    {
+      "itemId": 1,
+      "itemTs": "1970-01-01T00:00:00Z",
+      "itemDeleted": null,
+      "direction": "directSnd",
+      "contentType": "chatBanner",
+      "text": null,
+      "quotedItem": null
+    },
+    {
+      "itemId": 2,
+      "itemTs": "2026-11-16T04:21:50Z",
+      "itemDeleted": null,
+      "direction": "directRcv",
+      "contentType": "rcvDirectE2EEInfo",
+      "text": null,
+      "quotedItem": null,
+      "sender": null
+    },
+    {
+      "itemId": 3,
+      "itemTs": "2026-11-16T04:21:50Z",
+      "itemDeleted": null,
+      "direction": "directRcv",
+      "contentType": "rcvChatFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": null
+    },
+    {
+      "itemId": 4,
+      "itemTs": "2026-11-16T04:21:50Z",
+      "itemDeleted": null,
+      "direction": "directRcv",
+      "contentType": "rcvChatFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": null
+    },
+    {
+      "itemId": 5,
+      "itemTs": "2026-11-16T04:21:50Z",
+      "itemDeleted": null,
+      "direction": "directRcv",
+      "contentType": "rcvChatFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": null
+    },
+    {
+      "itemId": 6,
+      "itemTs": "2026-11-16T04:21:50Z",
+      "itemDeleted": null,
+      "direction": "directRcv",
+      "contentType": "rcvChatFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": null
+    },
+    {
+      "itemId": 7,
+      "itemTs": "2026-11-16T04:21:50Z",
+      "itemDeleted": null,
+      "direction": "directRcv",
+      "contentType": "rcvChatFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": null
+    },
+    {
+      "itemId": 21,
+      "itemTs": "2026-11-16T04:42:27Z",
+      "itemDeleted": null,
+      "direction": "directRcv",
+      "contentType": "rcvMsgContent",
+      "text": "[Campaign upstream] Bob Smith: direct_parent nonce=dp1-c20b10ce",
+      "quotedItem": null,
+      "sender": null
+    },
+    {
+      "itemId": 22,
+      "itemTs": "2026-11-16T04:45:17Z",
+      "itemDeleted": null,
+      "direction": "directRcv",
+      "contentType": "rcvMsgContent",
+      "text": "[Campaign upstream] Bob Smith: [replying to: earlier upstream message by campaign-upstream:user:1:group:9002:member:7] direct_reply nonce=dr1-51f19054",
+      "quotedItem": null,
+      "sender": null
+    },
+    {
+      "itemId": 23,
+      "itemTs": "2026-11-16T04:52:05Z",
+      "itemDeleted": null,
+      "direction": "directRcv",
+      "contentType": "rcvMsgContent",
+      "text": "[Campaign upstream] Bob Smith: direct_quote nonce=dr2-d673db25",
+      "quotedItem": {
+        "itemId": 21,
+        "sentAt": "2026-11-16T04:41:27Z",
+        "contentType": "text",
+        "text": "[Campaign upstream] Bob Smith: direct_parent nonce=dp1-c20b10ce"
+      },
+      "sender": null
+    }
+  ]
+}
