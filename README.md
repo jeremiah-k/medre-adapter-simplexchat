@@ -3,7 +3,7 @@
 Bridge allowlisted SimpleX Chat groups and direct conversations through the
 [official Python client](https://github.com/simplex-chat/simplex-chat/tree/stable/packages/simplex-chat-python).
 Group chat is the primary workflow. The provider includes plain-text attribution,
-reply fallbacks, durable admission, and an SDK-free fake for development.
+scoped native replies with readable fallback, durable admission, and an SDK-free fake for development.
 
 ## Install
 
@@ -203,9 +203,10 @@ per-item signature-verification verdicts, and mention/link flags. The explicit
 transport's relay context; the rest of the namespace stays out of the `off`,
 `minimal`, and `safe` metadata export modes, but an operator-selected explicit
 `full` metadata export embeds the whole namespace and can disclose the member
-ID. Reply/thread fallbacks are plain
-text; native quotes, attachments, edits, deletions, reactions, typing, and puppeting
-are not advertised. Received control items, sent echoes, blocked members, file
+ID. Replies use destination-bound native quotes when the retained parent is
+verified in the active profile and conversation. Missing, deleted or mismatched
+parents retain readable fallback. Threads remain fallback; attachments, edits,
+deletions, reactions, typing, and puppeting are not advertised. Received control items, sent echoes, blocked members, file
 captions, live partial messages, and private support chats are excluded.
 
 The first successful scan establishes a baseline without replaying existing
@@ -280,3 +281,5 @@ boundaries and versioned metadata projection.
 
 See [contributing](CONTRIBUTING.md) for the shared Trunk quality gate and uv-based
 editable development workflow.
+
+Native reply qualification is recorded in the [boundary follow-up](docs/evidence/native-reply-boundaries-sdk-7.1.3-2026-11-16/README.md).

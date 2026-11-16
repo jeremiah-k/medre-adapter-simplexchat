@@ -30,7 +30,7 @@ from .state import HandoffLedger, InboxLedger
 
 CAPABILITIES = AdapterCapabilities(
     text=True,
-    replies="fallback",
+    replies="native",
     threads="fallback",
     reactions="unsupported",
     edits="unsupported",

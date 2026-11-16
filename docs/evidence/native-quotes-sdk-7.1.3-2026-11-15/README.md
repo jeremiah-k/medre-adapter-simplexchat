@@ -24,5 +24,7 @@ consistency of the captured histories. Neither establishes observation
 authenticity, verifies installed SDKs on the hosts, nor reconstructs missing
 campaign logs. For capability promotion, review the original procedure and
 retain independent recipient observation intervals and restart/fault-injection
-traces (or repeat those cases). Replies remain advertised as fallback. Do not
+traces (or repeat those cases). At this campaign revision replies were advertised as fallback. Do not
 promote a capability or compatibility pin on the basis of this archive alone.
+
+The [boundary follow-up](../native-reply-boundaries-sdk-7.1.3-2026-11-16/README.md) supplies the additional process/send traces and recipient windows; original captures remain unchanged.

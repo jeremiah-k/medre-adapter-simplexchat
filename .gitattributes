@@ -2,3 +2,6 @@
 
 # Preserve frozen schema blob bytes.
 docs/schemas/** -text
+
+# Preserve native qualification capture bytes.
+docs/evidence/native-reply-boundaries-sdk-7.1.3-2026-11-16/capture/** -text

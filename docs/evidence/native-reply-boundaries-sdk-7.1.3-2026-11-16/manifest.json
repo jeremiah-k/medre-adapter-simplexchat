@@ -1,0 +1,32 @@
+{
+  "tested_core_commit": "989f44336e1f009ca89d7b50c8bbe0794ca251a6",
+  "tested_provider_commit": "a049e2f3264c76d57b2105b796ceda25b1bc6c90",
+  "sdk_version": "7.1.3",
+  "followup_to": "../native-quotes-sdk-7.1.3-2026-11-15/observations.json",
+  "capture_sha256": {
+    "sender.jsonl": "8410b0a23534724b9350470b8225022622d04a7a55169aafef9dbe2141653bfc",
+    "recipient.jsonl": "f1faef1529127016aece442b11e83f45e2a286de322a7093966e22d763b1d9c4",
+    "results.json": "8b7ca65aa43c5eaa70c962f8113396cbadc9aef210a17fdb4023b276e83be7f2"
+  },
+  "harness_sha256": {
+    "boundary_followup.py": "67ad4d7f36e627ef2de8f9906e5595074453db8ee5eb774af6f17b6fa74f7b5f",
+    "original_boundary_helper.py": "cbb56fbef4b41f5a65a2f15695e043860af97d910f12a1f7647367ee3df9ff85"
+  },
+  "promotion_base_provider_commit": "e941b36f57d812739157d0549aad76452a9cc8e1",
+  "unchanged_handoff_source_sha256": {
+    "src/medre/adapters/simplexchat/adapter.py": "ca3decd8b849046dde0fa74d15158bad5a983a677be3ad910b6837faad082a17",
+    "src/medre/adapters/simplexchat/codec.py": "bd4ff550336e303485213f48d358a07fda644ebe3b0aa7643f37d9845e069557",
+    "src/medre/adapters/simplexchat/config.py": "1afb237a89e8c82525a813a35300887dd07170b9b0a7d7290f0cd7a2e7ffae52",
+    "src/medre/adapters/simplexchat/renderer.py": "5b501af02dc5d456c00d15f86df7988167ad952b5feb49f8fb5fd839b1c122da",
+    "src/medre/adapters/simplexchat/session.py": "dcaaceacdc0dcb2a64e3caad33a2210f54042aa83303d0a946efc912c99aae9b",
+    "src/medre/adapters/simplexchat/state.py": "0b3fd2fb46ac15bddf803fa6ed9d3fe45e10f61688ae6f5e435b53fe582da182"
+  },
+  "worker_comparison": "AST identical after removing the added ensure_group_link helper and create_address/create_group_link CLI branches; existing native send, quote lookup, receive and lifecycle paths are unchanged.",
+  "core_comparison": {
+    "from": "989f44336e1f009ca89d7b50c8bbe0794ca251a6",
+    "to": "4513bac3a83c65f1caf543f468f52626e908f6fb",
+    "src_byte_identical": true
+  },
+  "scope": "Separate owned native identities on one host; actual native sends and workers; core binding/rendering; callback storage sinks; live recipient events and periodic native history; ten-second observation after each received connectivity barrier; no proof of permanent nondelivery.",
+  "teardown": "Native workers reaped, observer exited zero and both profile leases reacquired."
+}

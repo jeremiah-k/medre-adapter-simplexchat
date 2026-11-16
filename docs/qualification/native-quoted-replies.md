@@ -1,7 +1,9 @@
 # Native SimpleX quoted-reply qualification
 
 Native quote SDK shape and SDK-free restart/ledger tests are **not** evidence of
-recipient-side quote display. The provider capability remains `fallback`.
+recipient-side quote display. Native replies are supported by the peer campaign
+and its [boundary follow-up](../evidence/native-reply-boundaries-sdk-7.1.3-2026-11-16/README.md).
+Their exact source revisions, SDK and observation limits remain explicit.
 
 Use two distinct, independently operated native identities at exact pinned
 core, SimpleX provider and official SimpleX SDK revisions. Record sanitized
@@ -53,4 +55,7 @@ The [November 15 campaign](../evidence/native-quotes-sdk-7.1.3-2026-11-15/README
 indexes its retained captures and observation limits. It describes only the
 reported revision pair and SDK, not subsequent source changes. Retained
 restart and fault-injection summaries are not independent execution traces.
-Capability promotion requires a separate review; replies remain fallback.
+The [boundary follow-up](../evidence/native-reply-boundaries-sdk-7.1.3-2026-11-16/README.md)
+adds timestamped worker/send traces and bounded independent observation for both
+cases. Capability changes require explicit review of those records; the structural
+validator never authorizes promotion.

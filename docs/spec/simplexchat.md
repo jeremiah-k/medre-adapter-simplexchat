@@ -87,8 +87,8 @@ checks int64 conversation IDs and finite timeout values. CLI environment overrid
 select the same profile as the bridge. Discovery output escapes terminal controls
 and keeps unknown native exception text private.
 
-Text, direct/group conversations, native store-and-forward, and fallback
-replies/threads are advertised. Attachments, edits, reactions, deletions, typing,
+Text, direct/group conversations, native store-and-forward, native replies and
+fallback threads are advertised. Attachments, edits, reactions, deletions, typing,
 read receipts, presence and puppeting are not advertised. The bridge does not
 extend a native platform's encryption guarantee across other transports.
 
@@ -198,14 +198,14 @@ The pinned official SDK exposes `api_send_text_message(..., in_reply_to=ID)`
 which serializes `quotedItemId` into a composed message. Contract tests also
 exercise `api_send_messages` through native command serialization for direct
 and group chat references. This is an SDK shape fact, not permission to use an untrusted canonical ID as a native item ID.
-The quote candidate implementation below binds the scoped reference and fallback
-to the handoff ledger. Reply capability MUST remain `fallback` until its native
-submission and recipient-side presentation are independently qualified. Stale, absent,
+The scoped quote implementation below binds the reference and readable fallback
+to the handoff ledger. Native reply qualification MUST include independently
+observed native submission and recipient-side presentation. Stale, absent,
 cross-chat, or cross-profile targets MUST retain readable fallback, never
 switch to an unrelated local item. A crash after invoking the native API
 MUST NOT cause a second send without independent proof of non-acceptance.
 
-## Scoped outbound native quote candidate (not yet advertised)
+## Scoped outbound native quoted replies
 
 The renderer MAY project a reply as a native quote candidate only when core
 provides one unambiguous destination-bound `target_fact` for the same adapter
@@ -229,8 +229,11 @@ Legacy three-element text reservations remain valid. The official pinned SDK
 transmits `quotedItemId` to the selected group/direct conversation. Native
 queue acceptance does not prove an independently observed recipient quote.
 
-`replies` MUST remain `fallback` until independent peer qualification,
-including native quote rendering, profile restart and ambiguous submission.
+`replies` is `native` based on the recorded peer campaign and
+[boundary follow-up](../evidence/native-reply-boundaries-sdk-7.1.3-2026-11-16/README.md),
+including quote rendering, profile restart and ambiguous submission. Missing or
+unusable targets MUST retain readable fallback; uncertain reservations MUST
+remain fenced. Threads remain `fallback`.
 
 Use the [native peer qualification guide](../qualification/native-quoted-replies.md)
 to prepare revision-bound recipient observations. Its metadata checker does not
