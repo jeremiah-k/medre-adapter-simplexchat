@@ -7,6 +7,7 @@ import asyncio
 import getpass
 import json
 import math
+import os
 import sys
 from collections.abc import Callable
 from dataclasses import replace
@@ -97,10 +98,14 @@ async def execute(
         not plain_text(options.name) or not options.name.strip()
     ):
         raise UsageError("The bot display name must be nonempty text")
-    if options.command == "accept-group" and (
+    if options.command in {"accept-group", "create-link"} and (
         type(options.group_id) is not int or options.group_id <= 0
     ):
         raise UsageError("--group-id must be positive")
+    if options.command in {"create-address", "create-link"} and (
+        not plain_text(options.out) or not options.out.strip()
+    ):
+        raise UsageError("--out must be nonempty text")
     if options.command in {"join", "accept-group", "connect"} and (
         not math.isfinite(options.wait_seconds) or options.wait_seconds <= 0
     ):
@@ -152,6 +157,22 @@ async def execute(
                 "name": group["localDisplayName"],
                 "membership": group["membership"]["memberStatus"],
             }
+        if options.command == "create-address":
+            record = await session.call("create_address")
+            path = _write_link(options.out, record["link"])
+            return {
+                "address_created": bool(record["created"]),
+                "auto_accept": True,
+                "out": str(path),
+            }
+        if options.command == "create-link":
+            link = await session.call("create_group_link", group_id=options.group_id)
+            path = _write_link(options.out, link)
+            return {
+                "group_link_created": True,
+                "group_id": options.group_id,
+                "out": str(path),
+            }
         await session.call("start")
         if options.command == "join":
             await session.call("join", link=link)
@@ -189,6 +210,21 @@ async def execute(
 def _display(value: object) -> str:
     """Escape peer-controlled terminal control characters without losing IDs."""
     return "".join(ch if ch.isprintable() else f"\\u{ord(ch):04x}" for ch in str(value))
+
+
+def _write_link(destination: str, link: str) -> Path:
+    """Persist one private connection link into an owner-only operator file.
+
+    Connection links grant native connectivity, so they never cross the
+    command output; the operator-selected file is the only durable copy.
+    """
+    path = Path(destination)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(descriptor, 0o600)
+    with os.fdopen(descriptor, "w") as handle:
+        handle.write(link + "\n")
+    return path
 
 
 def main(argv: list[str] | None = None) -> int:

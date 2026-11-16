@@ -108,6 +108,16 @@ use `--link-stdin` for automation. A requested connection is persisted, and
 the command keeps native networking active for up to `--wait-seconds` (60 by
 default). The remote peer may need to approve.
 
+The profile can also originate connections. `create-address --adapter sx --out PATH`
+creates the profile's contact address with auto-accept enabled (an existing
+address is retained and only its settings refresh) and writes its private
+connection link into the named file, created with owner-only permissions.
+`create-link --adapter sx --group-id ID --out PATH` creates an invitation
+link for a local group reported by `groups` and writes it the same way. Link
+material never appears in command output; peers complete the connection while
+`connect --adapter sx` keeps native networking active, and a member introduced
+through a group link still needs explicit acceptance before membership.
+
 Provisioning completes with explicit actions. `accept-group --adapter sx --group-id ID`
 accepts an invited group, `connect --adapter sx` resumes pending native
 connections for a bounded interval, and
@@ -125,6 +135,11 @@ Read each result at its true evidence level:
   it, and use `connect --adapter sx` again when a request stays pending.
 - Group/member/contact IDs are local to this dedicated profile; they are not
   global SimpleX identities.
+- `create-address` and `create-link` prove local native state only. The written
+  link is the capability to connect, so keep its owner-only file private; a
+  member introduced through a group link still needs explicit acceptance before
+  membership. Creating a link is not relay acceptance, delivery, or read
+  evidence.
 - A linked contact is not an independently witnessed delivery. Nothing above
   proves a peer received a message: outbound acceptance confirms only the
   native local queue, and health describes the local native session, not peer

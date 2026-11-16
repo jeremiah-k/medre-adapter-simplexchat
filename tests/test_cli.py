@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from medre.adapters.simplexchat import cli
@@ -40,6 +42,10 @@ class Profile:
                 "localDisplayName": args["name"],
                 "membership": {"memberStatus": "creator"},
             }
+        if op == "create_address":
+            return {"created": True, "link": "simplex:address#secret-token"}
+        if op == "create_group_link":
+            return "https://simplex.chat/n/invite#secret-token"
         if op == "connection_status":
             return True
         return None
@@ -86,6 +92,119 @@ async def test_group_acceptance_is_explicit(config):
     )
     assert ("accept_group", {"group_id": 7}) in session.calls
     assert "joined" not in data
+
+
+async def test_address_creation_writes_private_link_only_into_owner_file(
+    config, tmp_path
+):
+    destination = tmp_path / "private" / "address.link"
+    session = Profile(config)
+    data = await cli.execute(
+        cli.parser().parse_args(["create-address", "--out", str(destination)]),
+        config,
+        session_factory=lambda _: session,
+    )
+    assert ("create_address", {}) in session.calls
+    assert data["address_created"] is True
+    assert data["auto_accept"] is True
+    assert "secret-token" not in repr(data)
+    assert destination.is_file()
+    assert destination.stat().st_mode & 0o777 == 0o600
+    assert destination.read_text() == "simplex:address#secret-token\n"
+    assert session.closed
+
+
+async def test_group_link_creation_writes_private_link_only_into_owner_file(
+    config, tmp_path
+):
+    destination = tmp_path / "invite.link"
+    session = Profile(config)
+    data = await cli.execute(
+        cli.parser().parse_args(
+            ["create-link", "--group-id", "9", "--out", str(destination)]
+        ),
+        config,
+        session_factory=lambda _: session,
+    )
+    assert ("create_group_link", {"group_id": 9}) in session.calls
+    assert data["group_link_created"] is True
+    assert data["group_id"] == 9
+    assert "secret-token" not in repr(data)
+    assert destination.is_file()
+    assert destination.stat().st_mode & 0o777 == 0o600
+    assert destination.read_text() == "https://simplex.chat/n/invite#secret-token\n"
+    assert session.closed
+
+
+async def test_link_creation_tightens_permissions_on_an_existing_operator_file(
+    config, tmp_path
+):
+    destination = tmp_path / "loose.link"
+    destination.write_text("stale operator file\n")
+    destination.chmod(0o644)
+    session = Profile(config)
+    data = await cli.execute(
+        cli.parser().parse_args(
+            ["create-link", "--group-id", "9", "--out", str(destination)]
+        ),
+        config,
+        session_factory=lambda _: session,
+    )
+    assert data["group_link_created"] is True
+    assert destination.stat().st_mode & 0o777 == 0o600
+    assert destination.read_text() == "https://simplex.chat/n/invite#secret-token\n"
+
+
+@pytest.mark.parametrize(
+    "args,message",
+    [
+        (["create-link", "--group-id", "0", "--out", "invite.link"], "--group-id"),
+        (["create-address", "--out", "   "], "--out"),
+        (["create-address", "--out", "addr\x00link"], "--out"),
+    ],
+)
+async def test_link_creation_rejects_invalid_input_before_native_start(
+    config, args, message
+):
+    started = []
+
+    def factory(_):
+        started.append(True)
+        raise AssertionError("must not start native session")
+
+    with pytest.raises(cli.UsageError, match=message):
+        await cli.execute(
+            cli.parser().parse_args(args), config, session_factory=factory
+        )
+    assert not started
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["create-address"],
+        ["create-link", "--group-id", "9"],
+    ],
+)
+def test_link_creation_requires_an_explicit_output_file(argv):
+    with pytest.raises(SystemExit):
+        cli.parser().parse_args(argv)
+
+
+async def test_link_creation_requires_an_existing_native_profile(config, tmp_path):
+    config = replace(config, database_prefix=str(tmp_path / "absent"))
+
+    def factory(_):
+        raise AssertionError("must not start native session")
+
+    with pytest.raises(cli.UsageError, match="profile is missing"):
+        await cli.execute(
+            cli.parser().parse_args(
+                ["create-address", "--out", str(tmp_path / "address.link")]
+            ),
+            config,
+            session_factory=factory,
+        )
 
 
 async def test_join_timeout_retains_pending_connection_without_claiming_membership(

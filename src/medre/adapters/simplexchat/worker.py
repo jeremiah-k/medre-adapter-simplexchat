@@ -234,6 +234,29 @@ async def main() -> None:
                     elif operation == "join":
                         connected = False
                         result = await api.api_connect_active_user(args["link"])
+                    elif operation == "create_address":
+                        user_id = user["userId"]
+                        created = await api.api_get_user_address(user_id) is None
+                        if created:
+                            await api.api_create_user_address(user_id)
+                        await api.api_set_address_settings(
+                            user_id,
+                            {
+                                "businessAddress": False,
+                                "autoAccept": {"acceptIncognito": False},
+                            },
+                        )
+                        record = await api.api_get_user_address(user_id)
+                        conn = (record or {}).get("connLinkContact") or {}
+                        address_link = conn.get("connFullLink")
+                        if not isinstance(address_link, str) or not address_link:
+                            raise RuntimeError("Native address link is unavailable")
+                        result = {"created": created, "link": address_link}
+                    elif operation == "create_group_link":
+                        group_id = args["group_id"]
+                        if type(group_id) is not int or not 1 <= group_id <= 2**63 - 1:
+                            raise ValueError("Invalid native group identity")
+                        result = await api.api_create_group_link(group_id, "member")
                     else:
                         raise ValueError("Unsupported native operation")
                     emit(kind="result", id=command["id"], result=result)

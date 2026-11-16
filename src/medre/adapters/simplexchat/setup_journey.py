@@ -62,6 +62,19 @@ STEPS: tuple[tuple[str, str, str], ...] = (
         "grants no send authority.",
     ),
     (
+        "medre adapter simplexchat create-address --adapter sx --out address.link",
+        "Create this profile's contact address with auto-accept enabled and "
+        "write its private connection link into the named owner-only file; "
+        "an existing address is retained and only its settings are "
+        "refreshed.",
+        "Proves the profile owns a native contact address with auto-accept "
+        "enabled and that its connection link was written only into the "
+        "owner-only file. The link never appears in command output, and a "
+        "connecting peer must still complete the connection while native "
+        "networking is active: not relay acceptance, delivery, or read "
+        "evidence, and grants no send authority.",
+    ),
+    (
         "medre adapter simplexchat groups --adapter sx --json",
         "List this profile's groups with their local IDs and membership "
         "status to select routing channels.",
@@ -95,10 +108,21 @@ STEPS: tuple[tuple[str, str, str], ...] = (
         "Create a bot-owned group with the declared name for routes that "
         "originate from this profile.",
         "Proves the group exists in this profile with the bot as owner. "
-        "Other members join only through the provider's own clients by "
-        "invitation or link, so peer membership is not witnessed here: not "
-        "relay acceptance, delivery, or read evidence, and grants no send "
+        "Other members join through the create-link invitation link or by "
+        "invitation, so peer membership is not witnessed here: not relay "
+        "acceptance, delivery, or read evidence, and grants no send "
         "authority.",
+    ),
+    (
+        "medre adapter simplexchat create-link --adapter sx "
+        "--group-id ID --out group.link",
+        "Create an invitation link for a local group reported by groups and "
+        "write it into the named owner-only file.",
+        "Proves the profile created a native group invitation link and "
+        "wrote it only into the owner-only file. The link never appears in "
+        "command output, and an introduced member still needs explicit "
+        "acceptance before membership: not relay acceptance, delivery, or "
+        "read evidence, and grants no send authority.",
     ),
     (
         "medre adapter simplexchat contacts --adapter sx",

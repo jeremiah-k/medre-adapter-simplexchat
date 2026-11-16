@@ -36,20 +36,24 @@ EXPECTED_COMMANDS = tuple(step[0] for step in STEPS)
 EXPECTED_STEP_MARKERS = {
     "init": ("display name", "proves nothing about connectivity"),
     "join": ("does not establish group membership", "independently witnessed"),
+    "create-address": ("auto-accept", "owner-only file"),
     "groups": ("does not prove group membership",),
     "accept-group": ("membership state",),
     "connect": ("does not establish group membership",),
     "create-group": ("not witnessed here",),
+    "create-link": ("owner-only file", "explicit acceptance"),
     "contacts": ("independently witnessed",),
 }
 
 EXPECTED_PARSE_FIELDS = {
     "init": {"name": "MEDRE bridge"},
     "join": {"link_stdin": False, "wait_seconds": 60.0},
+    "create-address": {"out": "address.link"},
     "groups": {"json": True},
     "accept-group": {"group_id": 7},
     "connect": {"wait_seconds": 60.0},
     "create-group": {"name": "Bridge room"},
+    "create-link": {"group_id": 7, "out": "group.link"},
     "contacts": {},
 }
 
@@ -109,10 +113,13 @@ def test_step_order_matches_the_readme_journey():
     assert commands == (
         "medre adapter simplexchat init --adapter sx --name 'MEDRE bridge'",
         "medre adapter simplexchat join --adapter sx",
+        "medre adapter simplexchat create-address --adapter sx --out address.link",
         "medre adapter simplexchat groups --adapter sx --json",
         "medre adapter simplexchat accept-group --adapter sx --group-id ID",
         "medre adapter simplexchat connect --adapter sx",
         "medre adapter simplexchat create-group --adapter sx --name 'Bridge room'",
+        "medre adapter simplexchat create-link --adapter sx "
+        "--group-id ID --out group.link",
         "medre adapter simplexchat contacts --adapter sx",
     )
 
