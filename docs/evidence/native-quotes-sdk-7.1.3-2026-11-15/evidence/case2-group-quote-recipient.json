@@ -1,0 +1,251 @@
+{
+  "channel": {
+    "type": "group",
+    "chatId": "1"
+  },
+  "items": [
+    {
+      "itemId": 8,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupE2EEInfo",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 9,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 10,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 11,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 12,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 13,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 14,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 15,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 16,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 17,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 18,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupFeature",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 19,
+      "itemTs": "2026-11-16T04:26:51Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvGroupEvent",
+      "text": null,
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 20,
+      "itemTs": "2026-11-16T04:38:56Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvMsgContent",
+      "text": "[Campaign upstream] Bob Smith: group_parent nonce=gpar-7b2667a5",
+      "quotedItem": null,
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    },
+    {
+      "itemId": 24,
+      "itemTs": "2026-11-16T04:56:17Z",
+      "itemDeleted": null,
+      "direction": "groupRcv",
+      "contentType": "rcvMsgContent",
+      "text": "[Campaign upstream] Bob Smith: group_quote nonce=gq1-c7357767",
+      "quotedItem": {
+        "itemId": 20,
+        "sentAt": "2026-11-16T04:34:44Z",
+        "contentType": "text",
+        "text": "[Campaign upstream] Bob Smith: group_parent nonce=gpar-7b2667a5"
+      },
+      "sender": {
+        "groupMemberId": 1,
+        "localDisplayName": "MEDRE bridge",
+        "memberRole": "owner",
+        "memberStatus": "connected",
+        "displayName": "MEDRE bridge",
+        "fullName": ""
+      }
+    }
+  ]
+}
