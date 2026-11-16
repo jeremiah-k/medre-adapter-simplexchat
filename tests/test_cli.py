@@ -1,3 +1,6 @@
+import os
+from dataclasses import replace
+
 import pytest
 
 from medre.adapters.simplexchat import cli
@@ -39,6 +42,13 @@ class Profile:
                 "groupId": 1,
                 "localDisplayName": args["name"],
                 "membership": {"memberStatus": "creator"},
+            }
+        if op == "create_address":
+            return {"created": True, "link": "simplex:address#secret-token"}
+        if op == "create_group_link":
+            return {
+                "created": True,
+                "link": "https://simplex.chat/n/invite#secret-token",
             }
         if op == "connection_status":
             return True
@@ -86,6 +96,128 @@ async def test_group_acceptance_is_explicit(config):
     )
     assert ("accept_group", {"group_id": 7}) in session.calls
     assert "joined" not in data
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX private link export")
+async def test_address_creation_writes_private_link_only_into_owner_file(
+    config, tmp_path
+):
+    destination = tmp_path / "private" / "address.link"
+    session = Profile(config)
+    data = await cli.execute(
+        cli.parser().parse_args(["create-address", "--out", str(destination)]),
+        config,
+        session_factory=lambda _: session,
+    )
+    assert ("create_address", {}) in session.calls
+    assert data["address_created"] is True
+    assert data["auto_accept"] is True
+    assert "secret-token" not in repr(data)
+    assert destination.is_file()
+    assert destination.stat().st_mode & 0o777 == 0o600
+    assert destination.read_text() == "simplex:address#secret-token\n"
+    assert session.closed
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX private link export")
+async def test_group_link_creation_writes_private_link_only_into_owner_file(
+    config, tmp_path
+):
+    destination = tmp_path / "invite.link"
+    session = Profile(config)
+    data = await cli.execute(
+        cli.parser().parse_args(
+            ["create-link", "--group-id", "9", "--out", str(destination)]
+        ),
+        config,
+        session_factory=lambda _: session,
+    )
+    assert ("create_group_link", {"group_id": 9}) in session.calls
+    assert data["group_link_created"] is True
+    assert data["group_id"] == 9
+    assert "secret-token" not in repr(data)
+    assert destination.is_file()
+    assert destination.stat().st_mode & 0o777 == 0o600
+    assert destination.read_text() == "https://simplex.chat/n/invite#secret-token\n"
+    assert session.closed
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX private link export")
+async def test_link_creation_replaces_existing_readable_inode(config, tmp_path):
+    destination = tmp_path / "loose.link"
+    destination.write_text("stale operator file\n")
+    destination.chmod(0o644)
+    session = Profile(config)
+    with destination.open() as old_reader:
+        old_inode = os.fstat(old_reader.fileno()).st_ino
+        data = await cli.execute(
+            cli.parser().parse_args(
+                ["create-link", "--group-id", "9", "--out", str(destination)]
+            ),
+            config,
+            session_factory=lambda _: session,
+        )
+        assert old_reader.read() == "stale operator file\n"
+        assert destination.stat().st_ino != old_inode
+    assert data["group_link_created"] is True
+    assert destination.stat().st_mode & 0o777 == 0o600
+    assert destination.read_text() == "https://simplex.chat/n/invite#secret-token\n"
+
+
+@pytest.mark.parametrize(
+    "args,message",
+    [
+        (["create-link", "--group-id", "0", "--out", "invite.link"], "--group-id"),
+        (
+            ["create-link", "--group-id", str(2**63), "--out", "invite.link"],
+            "--group-id",
+        ),
+        (["create-address", "--out", "   "], "--out"),
+        (["create-address", "--out", "addr\x00link"], "--out"),
+    ],
+)
+async def test_link_creation_rejects_invalid_input_before_native_start(
+    config, args, message
+):
+    started = []
+
+    def factory(_):
+        started.append(True)
+        raise AssertionError("must not start native session")
+
+    with pytest.raises(cli.UsageError, match=message):
+        await cli.execute(
+            cli.parser().parse_args(args), config, session_factory=factory
+        )
+    assert not started
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["create-address"],
+        ["create-link", "--group-id", "9"],
+    ],
+)
+def test_link_creation_requires_an_explicit_output_file(argv):
+    with pytest.raises(SystemExit):
+        cli.parser().parse_args(argv)
+
+
+async def test_link_creation_requires_an_existing_native_profile(config, tmp_path):
+    config = replace(config, database_prefix=str(tmp_path / "absent"))
+
+    def factory(_):
+        raise AssertionError("must not start native session")
+
+    with pytest.raises(cli.UsageError, match="profile is missing"):
+        await cli.execute(
+            cli.parser().parse_args(
+                ["create-address", "--out", str(tmp_path / "address.link")]
+            ),
+            config,
+            session_factory=factory,
+        )
 
 
 async def test_join_timeout_retains_pending_connection_without_claiming_membership(
@@ -258,3 +390,57 @@ async def test_cli_failed_cleanup_retains_native_profile_lease(config):
     finally:
         session.lease.close()
         cli._UNREAPED_SESSIONS.discard(session)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX private link export")
+@pytest.mark.parametrize("kind", ["symlink", "hardlink"])
+def test_link_export_does_not_modify_another_inode(tmp_path, kind):
+    target = tmp_path / "config.yaml"
+    target.write_text("untouched config")
+    destination = tmp_path / "invite.link"
+    if kind == "symlink":
+        destination.symlink_to(target)
+    else:
+        destination.hardlink_to(target)
+    cli._write_link(str(destination), "https://simplex.chat/invite#private")
+    assert target.read_text() == "untouched config"
+    assert not destination.is_symlink()
+    assert destination.stat().st_mode & 0o777 == 0o600
+    assert destination.read_text() == "https://simplex.chat/invite#private\n"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX private link export")
+@pytest.mark.parametrize("operation", ["fchmod", "fsync", "replace"])
+def test_failed_link_export_keeps_old_file_and_removes_temporary(
+    tmp_path, monkeypatch, operation
+):
+    destination = tmp_path / "invite.link"
+    destination.write_text("old")
+
+    def fail(*args):
+        raise OSError("secret-token")
+
+    monkeypatch.setattr(cli.os, operation, fail)
+    with pytest.raises(cli.UsageError, match="correct --out") as exc:
+        cli._export_link(str(destination), "https://simplex.chat/invite#secret-token")
+    assert "secret-token" not in str(exc.value)
+    assert destination.read_text() == "old"
+    assert list(tmp_path.iterdir()) == [destination]
+
+
+@pytest.mark.parametrize("command", ["create-address", "create-link"])
+async def test_private_export_unsupported_platform_refuses_before_start(
+    config, monkeypatch, command
+):
+    monkeypatch.delattr(cli.os, "fchmod", raising=False)
+    args = [command, "--out", "invite.link"]
+    if command == "create-link":
+        args += ["--group-id", "9"]
+
+    def factory(_):
+        raise AssertionError("must not start native session")
+
+    with pytest.raises(cli.UsageError, match="POSIX"):
+        await cli.execute(
+            cli.parser().parse_args(args), config, session_factory=factory
+        )
