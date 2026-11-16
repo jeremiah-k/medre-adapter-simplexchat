@@ -30,8 +30,10 @@ It does not inspect the SDK installation on either peer; the separately
 recorded local checks are necessary but do not authenticate the observations. Filling the template
 with `true` is **not** qualification. Verify receipts in the recipient application
 and retain independently captured, redacted evidence before capability promotion.
-Do not record session secrets, message bodies, profile database contents, or
-private invite links. Do not advance MEDRE's immutable compatibility pin or
+Do not record session secrets, production message bodies, profile database
+contents, or private invite links. Synthetic nonce text from dedicated
+qualification profiles may be retained to establish correlation and exact
+rendering. Use only synthetic identities and redact unrelated history. Do not advance MEDRE's immutable compatibility pin or
 advertise native replies until a separate release review approves the results.
 
 Mixed-installation restore, sustained BLE/radio tests and LXMF direct-link
@@ -44,3 +46,11 @@ fields, duplicate JSON keys and noncanonical profile tags. Evidence references
 are bounded printable labels; the tool does not fetch them, establish their
 redaction, or verify their contents. Input is read with a 1 MiB bound and malformed
 or excessively nested JSON is refused without printing the submitted data.
+
+## Recorded campaign
+
+The [November 15 campaign](../evidence/native-quotes-sdk-7.1.3-2026-11-15/README.md)
+indexes its retained captures and observation limits. It qualifies only the
+reported revision pair and SDK, not subsequent source changes. Retained
+restart and fault-injection summaries are not independent execution traces.
+Capability promotion requires a separate review; replies remain fallback.
