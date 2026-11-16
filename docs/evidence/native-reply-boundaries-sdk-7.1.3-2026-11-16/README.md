@@ -35,3 +35,42 @@ Offline tests verify record consistency and causal ordering, not observation
 authenticity. The callback storage sinks are not a full routed core-storage
 proof. Other SDKs, platforms, official deployment and sustained load are outside
 this native campaign. Original evidence remains unchanged.
+
+## Ordinary core planning probe
+
+The [planned reply](capture/planned-reply.json) was separately executed against
+provider commit `72328a92ea21229222ec04bd34745a19ac653c9a` and the same tested core.
+The real RuntimeBuilder used its normal capability-driven routing, relation
+binding, rendering and durable receipt/storage path. No delivery strategy was
+forced: the receipt reports `direct` and `sent`, and the independent recipient
+received one scoped quote to its local parent item 28. The [recipient stream](capture/planned-recipient.jsonl)
+retains that observation and complete lifecycle. This one routed probe supplements
+the handoff-boundary cases; their callback-sink scope remains distinct.
+
+## Harness and clock interpretation
+
+Each reservation check rereads persisted state with
+`SELECT request,native_id FROM handoffs WHERE outbox=? AND attempt=?`, using the
+same handoff provenance key before and after each retry. A missing row or a
+changed request/native result fails the comparison. The recorded digest omits
+those query parameters, but it is not a substitute for the keyed database read.
+This verifies logical reservation state, not SQLite physical row identity.
+
+The retained harness checks the exact public fence error message as well as the
+exact `AdapterPermanentError` type, zero sends and the unresolved reservation.
+The trace stores the exception class rather than repeating its message; an
+unrelated error does not satisfy the live harness. Offline checks additionally
+bind each retry to its fresh post-crash worker and each observation window to
+its completed redrive and independently received case-specific barrier. They
+retain distinct observed message IDs across snapshots/events, so a disappearing
+duplicate cannot be hidden by the last snapshot. The intended parent text comes
+from the earlier sender capture, and the recipient-local parent ID remains 28.
+
+Sender and child recipient observer ran on the same Linux host and both used
+`time.monotonic_ns()`. Cross-stream comparisons therefore share a clock domain;
+they are not a conversion between independent host clocks. The captured UTC
+values provide human-readable timestamps alongside that monotonic ordering.
+The normal-routing probe used the same adapter source bytes as this promotion;
+subsequent evidence-only revisions do not change those runtime bytes. These are
+reviewed facts about the retained harness and source comparisons, not a claim
+that digest checks authenticate arbitrary future captures or qualify code changes.

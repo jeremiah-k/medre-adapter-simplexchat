@@ -6,11 +6,14 @@
   "capture_sha256": {
     "sender.jsonl": "8410b0a23534724b9350470b8225022622d04a7a55169aafef9dbe2141653bfc",
     "recipient.jsonl": "f1faef1529127016aece442b11e83f45e2a286de322a7093966e22d763b1d9c4",
-    "results.json": "8b7ca65aa43c5eaa70c962f8113396cbadc9aef210a17fdb4023b276e83be7f2"
+    "results.json": "8b7ca65aa43c5eaa70c962f8113396cbadc9aef210a17fdb4023b276e83be7f2",
+    "planned-reply.json": "45a308e3d26156b0fb3569ac1741fafdbdbbb64541a4652ebb75da0d033d642c",
+    "planned-recipient.jsonl": "ee605f9275f246eee65252a5ec3dcedd197a6113e076f964a9018984579cf62a"
   },
   "harness_sha256": {
     "boundary_followup.py": "67ad4d7f36e627ef2de8f9906e5595074453db8ee5eb774af6f17b6fa74f7b5f",
-    "original_boundary_helper.py": "cbb56fbef4b41f5a65a2f15695e043860af97d910f12a1f7647367ee3df9ff85"
+    "original_boundary_helper.py": "cbb56fbef4b41f5a65a2f15695e043860af97d910f12a1f7647367ee3df9ff85",
+    "planned_reply_probe.py": "a948a2449df50f44d2d1a2bebba06ccd40b3d17b2276f8d5bc24244856a68337"
   },
   "promotion_base_provider_commit": "e941b36f57d812739157d0549aad76452a9cc8e1",
   "unchanged_handoff_source_sha256": {
@@ -28,5 +31,7 @@
     "src_byte_identical": true
   },
   "scope": "Separate owned native identities on one host; actual native sends and workers; core binding/rendering; callback storage sinks; live recipient events and periodic native history; ten-second observation after each received connectivity barrier; no proof of permanent nondelivery.",
-  "teardown": "Native workers reaped, observer exited zero and both profile leases reacquired."
+  "teardown": "Native workers reaped, observer exited zero and both profile leases reacquired.",
+  "planned_reply_provider_commit": "72328a92ea21229222ec04bd34745a19ac653c9a",
+  "planned_reply_adapter_source_sha256": "a416aeaddbf2226b3b220afbb74b429dc76d38b58f8babf0ec89384986791f54"
 }
