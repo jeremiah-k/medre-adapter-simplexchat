@@ -12,11 +12,11 @@ Keep core and adapters in one locked uv project:
 ```bash
 uv init --bare medre-bridge
 cd medre-bridge
-uv add 'medre @ git+https://github.com/jeremiah-k/medre.git@main' \
-  'medre-adapter-simplexchat @ git+https://github.com/jeremiah-k/medre-adapter-simplexchat.git@main'
+uv add medre medre-adapter-simplexchat
 ```
 
-Use immutable Git revisions for reproducible deployments. The provider pins the
+Keep the project lock for reproducible deployments. For Git development
+sources, select immutable revisions. The provider pins the
 released official `simplex-chat` package at the manifest pin. Its native library is downloaded
 on first initialization; no separate CLI daemon or unofficial wrapper is needed.
 The SDK supports Linux, macOS and Windows on its published architectures; CI
@@ -25,8 +25,15 @@ file permissions; they reject non-POSIX platforms before native mutation.
 This restriction does not change the other commands. This adapter's code is MIT licensed. The official SDK and
 native library carry their own AGPL-3.0 license.
 
-For a persistent MEDRE tool installation, `medre adapters install simplexchat`
-adds the provider to the same environment. Use `medre adapter simplexchat` for
+For a persistent MEDRE 0.1.1 or later tool installation:
+
+```bash
+uv tool install medre
+medre adapters install simplexchat
+```
+
+Existing saved Git requests and catalogs retain their sources. On Windows,
+run the printed uv installation command after MEDRE exits. Use `medre adapter simplexchat` for
 profile commands. The standalone `medre-simplexchat` entry point remains
 available in activated project environments with the same arguments.
 

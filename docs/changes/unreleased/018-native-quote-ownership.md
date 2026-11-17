@@ -6,12 +6,14 @@
   request; preserve legacy text reservations and uncertain-send fences.
 - Serialize the pinned SDK's `quotedItemId` without changing local queue
   confirmation to a remote delivery claim.
-- Keep advertised reply capability at `fallback` until independently observed
-  group/direct peer qualification and restart campaigns pass.
+- At this step, advertised reply capability remained `fallback` pending
+  independently observed group/direct peer qualification and restart campaigns.
+  The later native-reply promotion is recorded in #40.
 
 Verify retained parents through native item inspection after sealing the quote
 and fallback. Reuse accepted handoffs without consulting an expired parent;
-keep uncertain submissions fenced and native capability withheld.
+keep uncertain submissions fenced. Native capability remained withheld at this
+step, until the later qualification and promotion.
 
 Keep generated SDK message types behind type-checking guards so native worker
 bootstrap also works with the SDK-free subprocess boundary stub.
