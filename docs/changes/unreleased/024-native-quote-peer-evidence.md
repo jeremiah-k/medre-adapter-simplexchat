@@ -7,4 +7,4 @@ same-profile restart without duplicate submission, and an uncertain native
 submission remaining fenced without a resend. Recipient state is observed
 on a second dedicated profile at the same revisions. The capture index distinguishes directly retained observations from reported
 restart and fault-injection actions; review the original procedure before
-capability promotion. Replies remain advertised as fallback.
+capability promotion. Replies were advertised as fallback at capture time; scoped native quote advertising shipped separately (#40).

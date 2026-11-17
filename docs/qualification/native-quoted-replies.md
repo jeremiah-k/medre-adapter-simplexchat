@@ -36,7 +36,7 @@ Do not record session secrets, production message bodies, profile database
 contents, or private invite links. Synthetic nonce text from dedicated
 qualification profiles may be retained to establish correlation and exact
 rendering. Use only synthetic identities and redact unrelated history. Do not advance
-MEDRE's immutable compatibility pin or advertise native replies until a separate release review approves the results.
+MEDRE's immutable compatibility pin or extend native reply advertising until a separate release review approves the results.
 
 Mixed-installation restore, sustained BLE/radio tests and LXMF direct-link
 investigation remain independent release gates; this campaign does not qualify

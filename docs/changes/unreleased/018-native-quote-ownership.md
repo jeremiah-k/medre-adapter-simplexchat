@@ -1,4 +1,4 @@
-# SimpleX native quote ownership (candidate)
+# SimpleX native quote ownership
 
 - Bind core-scoped native reply targets to the active SimpleX profile, user and
   exact conversation, with readable fallback on pre-reservation mismatch.
