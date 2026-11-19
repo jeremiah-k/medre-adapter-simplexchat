@@ -582,7 +582,7 @@ class SimplexChatAdapter(AdapterContract):
             self.adapter_id,
             self.platform,
             self.role,
-            "0.1.0",
+            "0.2.0",
             self._capabilities,
             health=self.state,
         )
