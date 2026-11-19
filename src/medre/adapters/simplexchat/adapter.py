@@ -587,23 +587,9 @@ class SimplexChatAdapter(AdapterContract):
             health=self.state,
         )
 
-    def startup_info(self) -> dict[str, Any]:
-        """Facts the adapter already holds, for core's startup block.
-
-        Core duck-types this callable at the ready transition and renders
-        the returned scalar facts; display ordering and caps are core's
-        business.  Pure read: no native-process, RPC, or filesystem I/O,
-        no resource acquisition, no session mutation, and no native
-        client initialisation — the native client couples to a
-        natively-downloaded library at init, so the hook never touches
-        it.  Facts are the configured native user identity and the
-        installed client version read from package metadata, safe to
-        call from any worker thread.  The adapter holds no server mode,
-        server address, or operator address facts, so none are offered;
-        secret material is never offered either.  Startup info never
-        gates, blocks, or delays the native session.
-        """
-        return build_startup_info(self.config)
+    def startup_info(self) -> dict[str, object]:
+        """Report the installed client SDK version for the startup block."""
+        return build_startup_info()
 
     def diagnostics(self) -> dict[str, object]:
         """Expose retained health and explicit unknowns without native I/O."""
