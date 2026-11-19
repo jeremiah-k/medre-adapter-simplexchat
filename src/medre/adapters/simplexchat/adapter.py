@@ -26,6 +26,7 @@ from medre.core.supervision.diagnostic_contract import COMMON_DIAGNOSTIC_KEYS
 from .codec import SimplexChatCodec, chat_channel
 from .config import SimplexChatConfig, plain_text
 from .session import SessionError, SessionUnavailable, SimplexChatSession
+from .startup_info import build_startup_info
 from .state import HandoffLedger, InboxLedger
 
 CAPABILITIES = AdapterCapabilities(
@@ -585,6 +586,10 @@ class SimplexChatAdapter(AdapterContract):
             self._capabilities,
             health=self.state,
         )
+
+    def startup_info(self) -> dict[str, object]:
+        """Report the installed client SDK version for the startup block."""
+        return build_startup_info()
 
     def diagnostics(self) -> dict[str, object]:
         """Expose retained health and explicit unknowns without native I/O."""
