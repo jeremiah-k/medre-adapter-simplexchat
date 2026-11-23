@@ -1,27 +1,35 @@
 # Two-profile local recipient run, 2026-11-23
 
 One executed operator run of the [two-profile local recipient tier](../../qualification/two-profile-recipient.md)
-at the immutable source pair [recorded in the verdict](verdict.json):
+at the original operator-selected production source pair:
 core `267336775390fabd20537672ed5af4ea07b82e40` and provider
 `efc4786c42d350bf691d8037ddfc48c8bb50e1ad`, with the official client SDK at
-the manifest pin. The campaign environment's Python was 3.14. The production
-adapter source was verified byte-identical to the pinned provider revision
-before the run; the harness commit recorded in the verdict is the same
-revision because the run executed from that exact provider source tree.
+the manifest pin. The campaign environment's Python was 3.14. This is a
+historical **version 1** campaign result, not a fresh version 2 qualification.
+The provider pin is the production-source baseline; the harness was introduced
+in the PR branch and did not exist in that older commit. The earlier record
+incorrectly equated the production pin with the executable harness revision;
+there is no independent immutable harness identity in the retained public
+summary. Its exact source revision cannot therefore be established from the
+published evidence alone. The server image digest was also not captured in
+the retained public record, so its exact image cannot be reproduced from this
+summary. A new version 2 campaign is required to satisfy the stronger gate.
 
 ## Run mode
 
 - One `pytest -m live` execution of `tests/test_two_profile_recipient.py`
-  inside the prepared campaign environment: [JUnit result](junit.xml) reports
-  one test, zero failures, zero errors, no skips, about thirty seconds wall.
+  inside the prepared campaign environment: the operator recorded one test,
+  zero failures, zero errors, no skips, and about thirty seconds wall.
+  Generated JUnit XML and the offline verdict remain in the private campaign
+  directory; they are not part of the repository.
 - Two dedicated native profiles, independently controlled processes, on one
   Linux host; an unprivileged local messaging-server container (non-root
   user, tmpfs-only storage, no host binds, published to host loopback only)
   was the only enabled server for both profiles; the
   [server recipe](../../qualification/two-profile-recipient.md#local-messaging-server)
   reproduces it.
-- The verdict record is content-free: profile tags, digests, opaque native
-  references, monotonic timestamps and process identities only. Raw traces,
+- The original verdict record was intended to be content-free: profile tags,
+  digests, opaque native references, monotonic timestamps and process identities. Raw traces,
   links, server addresses and profile databases stayed in the operator's
   private campaign directory and are not published.
 
@@ -56,9 +64,12 @@ later source pair. Capability claims remain bound to their own records.
 
 ## Limits
 
-The offline verdict refuses incomplete or self-contradictory records for the
-selected revisions; it cannot authenticate that recorded observations are
-true. The retained private traces are the audit trail for this execution.
+The version 1 offline verdict was not sufficient to refuse all incomplete or
+self-contradictory records. The version 2 gate adds independent handoff
+identities, roster and quote binding, worker lifecycle and actual send-request
+proofs, and a fresh retained-history observation; that gate has not been
+re-executed against this historical run. The retained private traces are the
+audit trail for the original execution, not proof for an unseen rerun.
 One run at one moment does not qualify other environments, sustained load,
 or a changed source pair. No receipt, retry, or delivery-confirmation
 semantics changed; local-queue acceptance remains distinct from recipient

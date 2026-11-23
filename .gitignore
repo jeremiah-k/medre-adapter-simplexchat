@@ -29,3 +29,7 @@ junit-*.xml
 htmlcov/
 .env
 .medre-dev.yaml
+
+# Generated two-profile campaign reports are private operator artifacts
+/docs/evidence/two-profile-recipient-*/junit.xml
+/docs/evidence/two-profile-recipient-*/verdict.json

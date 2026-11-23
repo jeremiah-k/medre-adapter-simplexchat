@@ -76,7 +76,7 @@ docker run -d --name medre-smp-tier \
    && exec smp-server start +RTS -N -RTS'
 docker logs medre-smp-tier 2>&1 | grep -E 'Server address|Serving SMP protocol'
 docker exec medre-smp-tier cat /etc/opt/simplex/fingerprint
-docker rm -f -v medre-smp-tier
+# Save the resolved $SMP_IMAGE digest privately with this campaign's run metadata.
 ```
 
 `--disable-web` is required: with the web section enabled the server exits for
@@ -84,8 +84,9 @@ want of HTTPS credentials. `--disable-store-log` keeps messages in memory, so
 nothing is written outside the memory-backed mounts. The `sed` edit leaves only
 the unprivileged port, because the generated configuration also lists 443. The
 server address is `smp://<fingerprint>=@127.0.0.1`, where the fingerprint is the
-file's single line; pass it as `MEDRE_SIMPLEX_TIER_SERVER` and pin the image
-digest in the campaign record. Do not add `--privileged`, host networking or a
+file's single line; pass it as `MEDRE_SIMPLEX_TIER_SERVER`. The harness refuses
+non-loopback IPs and hosted HTTPS links. Save the exact `SMP_IMAGE` digest with
+the private campaign run; do not use mutable `latest` tags as published proof. Do not add `--privileged`, host networking or a
 host bind mount to make this run.
 
 ```shell
@@ -96,7 +97,17 @@ MEDRE_SIMPLEX_TIER_PROVIDER_COMMIT="$PROVIDER_COMMIT" \
 MEDRE_SIMPLEX_TIER_ROOT=/private/campaign-root \
   python -m pytest tests/test_two_profile_recipient.py -m live \
   --junitxml=/private/campaign-root/junit.xml
+# After the campaign and its evidence collection finish:
+docker rm -f -v medre-smp-tier
 ```
+
+The test prints a unique private `run-*/verdict.json` location. A second,
+failed campaign cannot silently inherit a previous success at a shared path.
+Do not commit generated verdicts or JUnit artifacts. Version 2 of the verdict
+format requires independently attempted handoff IDs, a confirmed worker exit,
+actual worker-boundary send-request counts, and a fresh post-redrive recipient
+history observation. Version 1 results are retained only as historical records
+and do not satisfy this stronger qualification gate.
 
 The tier fails rather than skips when started without a complete campaign
 environment. Raw traces, links, server addresses and profile databases stay

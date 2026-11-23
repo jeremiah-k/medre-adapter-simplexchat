@@ -22,3 +22,8 @@ verdict; the qualification procedure is documented in
 No adapter or core send, receipt, retry or delivery-confirmation semantics
 change; the tier adds campaign tooling, tests and evidence only. Local-queue
 acceptance remains distinct from an independent recipient observation.
+
+The strengthened version 2 gate is fail-closed on independent attempt identity,
+recipient-visible quote and roster binding, confirmed worker exit, native
+redrive send requests, and post-restart retained history. Version 1 evidence
+remains historical; a new live run is required to qualify version 2.
