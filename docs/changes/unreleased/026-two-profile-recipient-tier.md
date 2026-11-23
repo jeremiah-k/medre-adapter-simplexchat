@@ -26,4 +26,7 @@ acceptance remains distinct from an independent recipient observation.
 The strengthened version 2 gate is fail-closed on independent attempt identity,
 recipient-visible quote and roster binding, confirmed worker exit, native
 redrive send requests, and post-restart retained history. Version 1 evidence
-remains historical; a new live run is required to qualify version 2.
+remains historical; a version 2 live campaign has been executed at the pinned
+source pair with the strengthened harness and recorded under
+`docs/evidence/two-profile-recipient-2026-11-23/`, with generated reports kept
+in the operator's private campaign directory.
