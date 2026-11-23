@@ -947,6 +947,28 @@ def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def _history_items(response: Any) -> list[dict[str, Any]]:
+    """Normalize native history rows into the event payload item shape.
+
+    The retained-history API returns bare chat items beside one top-level
+    chat info, while live event payloads carry the info inside each item
+    record. Observation parsing needs the event payload shape either way.
+    """
+    info = (response or {}).get("chatInfo")
+    rows = (response or {}).get("chatItems")
+    if not isinstance(rows, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if isinstance(row.get("chatItem"), dict):
+            normalized.append(row)
+        elif isinstance(info, dict):
+            normalized.append({"chatInfo": info, "chatItem": row})
+    return normalized
+
+
 def _native_view(record: Any) -> dict[str, Any] | None:
     """Extract the bounded observation view from one raw native chat item."""
     info = (record or {}).get("chatInfo") or {}
@@ -1332,8 +1354,7 @@ class _Observer:
             response = await self.session.call(
                 "history", chat_type=kind, chat_id=int(number), before=None
             )
-            rows = response.get("chatItems") if isinstance(response, dict) else []
-            for row in rows or []:
+            for row in _history_items(response):
                 view = _native_view(row)
                 if (
                     view is not None
@@ -1709,9 +1730,7 @@ async def run_campaign(
         retained = await recipient_session.call(
             "history", chat_type="group", chat_id=target_recipient, before=None
         )
-        retained_rows = (
-            retained.get("chatItems", []) if isinstance(retained, dict) else []
-        )
+        retained_rows = _history_items(retained)
         retained_reply_after_redrive = len(reply_views) == 1 and _fresh_reply_retained(
             retained_rows,
             channel=recipient_target_channel,

@@ -63,6 +63,32 @@ def test_sender_identity_is_mapped_to_recipient_local_group_ids():
     )
 
 
+def test_history_rows_normalize_to_the_event_item_shape():
+    info = {"type": "group", "groupInfo": {"groupId": 8}}
+    item = {
+        "chatDir": {"type": "groupRcv", "groupMember": {"memberId": "member-x"}},
+        "content": {
+            "type": "rcvMsgContent",
+            "msgContent": {"type": "text", "text": "retained body"},
+        },
+        "meta": {"itemId": 21},
+        "file": None,
+    }
+    retained = gate._history_items({"chatInfo": info, "chatItems": [item, "junk"]})
+    assert len(retained) == 1
+    view = gate._native_view(retained[0])
+    assert view is not None
+    assert view["channel"] == "group:8"
+    assert view["item_id"] == 21
+    already_wrapped = gate._history_items(
+        {"chatInfo": info, "chatItems": [{"chatInfo": info, "chatItem": item}]}
+    )
+    assert gate._native_view(already_wrapped[0])["item_id"] == 21
+    assert gate._history_items(None) == []
+    assert gate._history_items({"chatItems": None}) == []
+    assert gate._history_items({"chatItems": "unexpected"}) == []
+
+
 def test_checkpoint_concurrent_commits_preserve_both_streams(tmp_path):
     context = object.__new__(gate.DurableHarnessContext)
     context.checkpoints_path = tmp_path / "checkpoints.json"
