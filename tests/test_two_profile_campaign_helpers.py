@@ -43,10 +43,12 @@ def test_harness_requires_a_native_full_link_not_https():
 
 
 def test_sender_identity_is_mapped_to_recipient_local_group_ids():
-    group = lambda number, member: {
-        "groupId": number,
-        "membership": {"memberId": member},
-    }
+    def group(number, member):
+        return {
+            "groupId": number,
+            "membership": {"memberId": member},
+        }
+
     received = [group(6, "recipient-target"), group(8, "recipient-sibling")]
     sender = {
         "group:6": gate._sha256("sender-target"),
