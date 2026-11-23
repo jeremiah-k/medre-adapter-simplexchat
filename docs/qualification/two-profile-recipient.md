@@ -83,8 +83,11 @@ docker exec medre-smp-tier cat /etc/opt/simplex/fingerprint
 want of HTTPS credentials. `--disable-store-log` keeps messages in memory, so
 nothing is written outside the memory-backed mounts. The `sed` edit leaves only
 the unprivileged port, because the generated configuration also lists 443. The
-server address is `smp://<fingerprint>=@127.0.0.1`, where the fingerprint is the
-file's single line; pass it as `MEDRE_SIMPLEX_TIER_SERVER`. The harness refuses
+server address is `smp://<fingerprint>=@127.0.0.1`: the fingerprint's base64
+padding is stripped and the trailing `=` delimiter is appended once, exactly as
+the server's `Server address:` log line prints it. Appending the delimiter to
+the padded fingerprint file instead yields a doubled `=` that the native client
+refuses. Pass the address as `MEDRE_SIMPLEX_TIER_SERVER`. The harness refuses
 non-loopback IPs and hosted HTTPS links. Save the exact `SMP_IMAGE` digest with
 the private campaign run; do not use mutable `latest` tags as published proof. Do not add `--privileged`, host networking or a
 host bind mount to make this run.
