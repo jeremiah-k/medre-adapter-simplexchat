@@ -78,6 +78,7 @@ def qualified_record():
         "exit_signal": "SIGKILL",
         "redrive_pid": 200,
         "redrive_ready_ns": 1800,
+        "redrive_started_ns": 1750,
         "stopped_ns": 2400,
     }
     record["recipient_worker"] = {"pid": 300, "ready_ns": 1050, "stopped_ns": 2300}
@@ -87,6 +88,11 @@ def qualified_record():
         "sent_text_sha256": DIGEST_A,
         "send_ns": 1200,
         "ledger": ledger(),
+        "expected_attempt": {
+            "event_id": "event-p",
+            "outbox_id": "outbox-p",
+            "attempt_number": 1,
+        },
         "observations": [observation()],
         "sibling_observations": [],
     }
@@ -100,6 +106,11 @@ def qualified_record():
             native_ref="lease:user:1:group:5:item:43",
             native_item_id=43,
         ),
+        "expected_attempt": {
+            "event_id": "event-r",
+            "outbox_id": "outbox-r",
+            "attempt_number": 1,
+        },
         "observations": [
             observation(
                 item_id=44,
@@ -126,6 +137,7 @@ def qualified_record():
         ),
         "reply_text_sha256": DIGEST_D,
         "reply_observations_total": 1,
+        "reply_retained_after_redrive": True,
         "new_sends": 0,
     }
     cases["transient_worker_admission"] = {
@@ -136,7 +148,7 @@ def qualified_record():
             "event_id": "event-t",
             "text_sha256": DIGEST_C,
             "provenance": "recovered",
-            "channel": "group:6",
+            "channel": "group:5",
             "event_kind": "message.created",
             "admitted_ns": 1850,
         },
@@ -287,7 +299,7 @@ def test_wrong_or_missing_quote_targets_are_refused(updates):
 def test_quote_target_not_bound_to_the_observed_parent_is_refused():
     record = qualified_record()
     record["cases"]["native_quote_target"]["parent_item_id"] = 30
-    assert any("targets another message" in reason for reason in validate(record))
+    assert any("declared parent differs" in reason for reason in validate(record))
 
 
 def test_restart_without_a_fresh_worker_is_refused():
@@ -340,6 +352,10 @@ def test_missing_transient_admission_is_refused():
         {"text_sha256": DIGEST_D},
         {"provenance": "history"},
         {"channel": "group:8"},
+        {"channel": "group:6"},
+        {"event_kind": "message.edited"},
+        {"provenance": []},
+        {"admitted_ns": 1720},
         {"event_id": ""},
         {"admitted_ns": None},
     ],
@@ -430,3 +446,163 @@ def test_installed_sdk_check_accepts_exact_pin(monkeypatch, capsys):
     )
     assert gate.main(["--check-sdk"]) == 0
     assert gate._pinned_sdk() in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("case", gate.CASES)
+def test_case_cannot_be_null(case):
+    record = qualified_record()
+    record["cases"][case] = None
+    assert any("evidence objects" in reason for reason in validate(record))
+
+
+@pytest.mark.parametrize(
+    "target,siblings",
+    [
+        ("target_channel", "sibling_channels"),
+        ("recipient_target_channel", "recipient_sibling_channels"),
+    ],
+)
+def test_target_must_not_be_its_own_sibling(target, siblings):
+    record = qualified_record()
+    record[siblings] = [record[target]]
+    assert any("must not include" in reason for reason in validate(record))
+
+
+def test_missing_target_roster_is_refused():
+    record = qualified_record()
+    del record["roster_member_sha256s"]["group:6"]
+    assert validate(record)
+
+
+def test_roster_wrong_shape_is_refusal_not_traceback():
+    record = qualified_record()
+    record["roster_member_sha256s"] = [DIGEST_B]
+    assert any("roster" in reason.lower() for reason in validate(record))
+
+
+def test_duplicate_roster_members_are_not_independent():
+    record = qualified_record()
+    record["roster_member_sha256s"]["group:6"] = [DIGEST_B, DIGEST_B]
+    assert validate(record)
+
+
+def test_quote_declared_and_observed_parent_must_agree():
+    record = qualified_record()
+    quote = record["cases"]["native_quote_target"]
+    quote["parent_item_id"] = 30
+    quote["observations"][0]["quoted_item_id"] = 30
+    assert any("declared parent differs" in reason for reason in validate(record))
+    record = qualified_record()
+    quote = record["cases"]["native_quote_target"]
+    quote["parent_text_sha256"] = DIGEST_B
+    quote["observations"][0]["quoted_text_sha256"] = DIGEST_B
+    assert any("declared parent digest" in reason for reason in validate(record))
+
+
+@pytest.mark.parametrize("case", ["group_send_observed", "native_quote_target"])
+def test_observation_before_send_refused(case):
+    record = qualified_record()
+    record["cases"][case]["observations"][0]["observed_ns"] = 1150
+    assert any("observation predates send" in reason for reason in validate(record))
+
+
+def test_independent_attempt_identity_is_required():
+    record = qualified_record()
+    record["cases"]["group_send_observed"]["ledger"]["event_id"] = "unrelated"
+    assert any("independently attempted" in reason for reason in validate(record))
+
+
+def test_native_ref_cannot_point_to_another_group():
+    record = qualified_record()
+    record["cases"]["native_quote_target"]["ledger"][
+        "native_ref"
+    ] = "lease:user:1:group:7:item:43"
+    assert any(
+        "channel/item identity disagree" in reason for reason in validate(record)
+    )
+
+
+def test_recipient_worker_must_be_independent():
+    record = qualified_record()
+    record["recipient_worker"]["pid"] = record["sender_worker"]["redrive_pid"]
+    assert any("independent worker" in reason for reason in validate(record))
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("exited_ns", None),
+        ("exit_signal", None),
+        ("redrive_started_ns", 1500),
+        ("redrive_ready_ns", 1740),
+    ],
+)
+def test_restart_worker_timestamps_fail_closed(key, value):
+    record = qualified_record()
+    record["sender_worker"][key] = value
+    assert validate(record)
+
+
+def test_transient_outside_confirmed_downtime_refused():
+    record = qualified_record()
+    record["cases"]["transient_worker_admission"]["recipient_send_ns"] = 1760
+    assert any("worker is down" in reason for reason in validate(record))
+
+
+def test_restart_ledger_must_match_original_reply():
+    record = qualified_record()
+    record["cases"]["restart_continuation"]["ledger"] = ledger()
+    record["cases"]["restart_continuation"]["reused_native_ref"] = ledger()[
+        "native_ref"
+    ]
+    assert any("original reply" in reason for reason in validate(record))
+    record = qualified_record()
+    record["cases"]["restart_continuation"]["ledger"] = None
+    assert any("required" in reason for reason in validate(record))
+
+
+def test_restart_reply_digest_must_match_original():
+    record = qualified_record()
+    record["cases"]["restart_continuation"]["reply_text_sha256"] = DIGEST_B
+    assert any("reply digest differs" in reason for reason in validate(record))
+
+
+def test_post_redrive_reply_retention_required():
+    record = qualified_record()
+    record["cases"]["restart_continuation"]["reply_retained_after_redrive"] = False
+    assert any("retained reply" in reason for reason in validate(record))
+
+
+def test_admission_after_replacement_start():
+    record = qualified_record()
+    record["cases"]["transient_worker_admission"]["journal_entry"]["admitted_ns"] = 1700
+    assert any("admission predates" in reason for reason in validate(record))
+
+
+def test_old_version_cannot_claim_v2_qualification():
+    record = qualified_record()
+    record["version"] = 1
+    assert any("Unsupported evidence version" in reason for reason in validate(record))
+
+
+def test_send_cannot_precede_sender_readiness():
+    record = qualified_record()
+    record["cases"]["group_send_observed"]["send_ns"] = 1090
+    assert any(
+        "send predates sender readiness" in reason for reason in validate(record)
+    )
+
+
+def test_reply_cannot_precede_parent_observation():
+    record = qualified_record()
+    record["cases"]["native_quote_target"]["send_ns"] = 1250
+    record["cases"]["native_quote_target"]["observations"][0]["observed_ns"] = 1350
+    assert any("predates parent observation" in reason for reason in validate(record))
+
+
+def test_kill_must_follow_reply_observation():
+    record = qualified_record()
+    record["cases"]["restart_continuation"]["kill_ns"] = 1450
+    assert any(
+        "killed before reply observation" in reason for reason in validate(record)
+    )

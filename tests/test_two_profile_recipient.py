@@ -10,7 +10,6 @@ recipient-side observations from a second, independently controlled profile.
 from __future__ import annotations
 
 import importlib.util
-import json
 import os
 from pathlib import Path
 
@@ -47,23 +46,19 @@ def _campaign_environment() -> dict[str, str]:
 
 async def test_two_profile_local_recipient_tier(tmp_path):
     """One campaign execution covers all four two-profile cases."""
-    import asyncio
     import secrets
 
     environment = _campaign_environment()
     root = Path(environment["MEDRE_SIMPLEX_TIER_ROOT"])
+    run_path = root / f"run-{secrets.token_hex(4)}"
+    print(f"Private two-profile campaign: {run_path}")
     record, failures = await harness.run_campaign(
         server=environment["MEDRE_SIMPLEX_TIER_SERVER"],
-        root=root / f"run-{secrets.token_hex(4)}",
+        root=run_path,
         expected_core_commit=environment["MEDRE_SIMPLEX_TIER_CORE_COMMIT"],
         expected_provider_commit=environment["MEDRE_SIMPLEX_TIER_PROVIDER_COMMIT"],
     )
-    verdict_path = root / "verdict.json"
-    await asyncio.to_thread(
-        verdict_path.write_text,
-        json.dumps(record, indent=2, sort_keys=True),
-        "utf-8",
-    )
+    assert (run_path / "verdict.json").exists()
     refusals = harness.evaluate(
         record,
         expected_core_commit=environment["MEDRE_SIMPLEX_TIER_CORE_COMMIT"],

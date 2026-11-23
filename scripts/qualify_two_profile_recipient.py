@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import ipaddress
 import hashlib
 import importlib
 import importlib.metadata
@@ -26,12 +27,14 @@ import sqlite3
 import sys
 import time
 import tomllib
+from contextlib import AsyncExitStack
+from urllib.parse import urlsplit
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 FORMAT = "medre-simplex-two-profile-recipient-evidence"
-VERSION = 1
+VERSION = 2
 CASES = (
     "group_send_observed",
     "native_quote_target",
@@ -43,6 +46,7 @@ SHA256 = re.compile(r"^[0-9a-f]{64}$")
 CHANNEL = re.compile(r"^group:[1-9][0-9]{0,18}$")
 LINK_MARKERS = ("smp://", "simplex://", "https://", "http://", "xftp://")
 
+ATTEMPT_KEYS = {"event_id", "outbox_id", "attempt_number"}
 LEDGER_KEYS = {
     "event_id",
     "outbox_id",
@@ -68,6 +72,7 @@ SENDER_WORKER_KEYS = {
     "exit_signal",
     "redrive_pid",
     "redrive_ready_ns",
+    "redrive_started_ns",
     "stopped_ns",
 }
 RECIPIENT_WORKER_KEYS = {"pid", "ready_ns", "stopped_ns"}
@@ -98,6 +103,7 @@ CASE_KEYS: dict[str, set[str]] = {
         "sent_text_sha256",
         "send_ns",
         "ledger",
+        "expected_attempt",
         "observations",
         "sibling_observations",
     },
@@ -106,6 +112,7 @@ CASE_KEYS: dict[str, set[str]] = {
         "sent_text_sha256",
         "send_ns",
         "ledger",
+        "expected_attempt",
         "observations",
         "sibling_observations",
         "parent_item_id",
@@ -119,6 +126,7 @@ CASE_KEYS: dict[str, set[str]] = {
         "ledger",
         "reply_text_sha256",
         "reply_observations_total",
+        "reply_retained_after_redrive",
         "new_sends",
     },
     "transient_worker_admission": {
@@ -201,6 +209,7 @@ def template() -> dict[str, Any]:
                 "sent_text_sha256": "",
                 "send_ns": None,
                 "ledger": dict.fromkeys(sorted(LEDGER_KEYS)),
+                "expected_attempt": dict.fromkeys(sorted(ATTEMPT_KEYS)),
                 "observations": [],
                 "sibling_observations": [],
             },
@@ -209,6 +218,7 @@ def template() -> dict[str, Any]:
                 "sent_text_sha256": "",
                 "send_ns": None,
                 "ledger": dict.fromkeys(sorted(LEDGER_KEYS)),
+                "expected_attempt": dict.fromkeys(sorted(ATTEMPT_KEYS)),
                 "observations": [],
                 "sibling_observations": [],
                 "parent_item_id": None,
@@ -222,6 +232,7 @@ def template() -> dict[str, Any]:
                 "ledger": dict.fromkeys(sorted(LEDGER_KEYS)),
                 "reply_text_sha256": "",
                 "reply_observations_total": None,
+                "reply_retained_after_redrive": False,
                 "new_sends": None,
             },
             "transient_worker_admission": {
@@ -294,7 +305,12 @@ def _check_shape(record: Any, errors: list[str]) -> bool:
                 if value is not None and not isinstance(value, str):
                     errors.append(f"{key}.{name} must be a signal name or null")
                 continue
-            if name in {"exited_ns", "redrive_pid", "redrive_ready_ns"}:
+            if name in {
+                "exited_ns",
+                "redrive_pid",
+                "redrive_ready_ns",
+                "redrive_started_ns",
+            }:
                 if value is not None and type(value) is not int:
                     errors.append(f"{key}.{name} must be an integer or null")
                 continue
@@ -326,9 +342,19 @@ def _check_shape(record: Any, errors: list[str]) -> bool:
             or any(not CHANNEL.fullmatch(str(channel)) for channel in channels)
         ):
             errors.append(f"{key} must list at least one sibling group channel")
+        elif (
+            record.get(
+                "target_channel"
+                if key == "sibling_channels"
+                else "recipient_target_channel"
+            )
+            in channels
+        ):
+            errors.append(f"{key} must not include its profile target channel")
     roster = record.get("roster_member_sha256s")
     if not isinstance(roster, dict) or not roster:
         errors.append("A recipient-side member roster is required")
+        return False
     else:
         for channel, members in roster.items():
             if not CHANNEL.fullmatch(str(channel)):
@@ -342,6 +368,10 @@ def _check_shape(record: Any, errors: list[str]) -> bool:
                 )
             ):
                 errors.append("Each roster channel needs at least two member digests")
+                return False
+            if len(set(members)) != len(members):
+                errors.append("Recipient rosters must contain distinct member digests")
+                return False
     if record.get("servers_local_only") is not True:
         errors.append("Both profiles must be restricted to the local server only")
     return True
@@ -399,18 +429,45 @@ def _check_ledger(ledger: Any, errors: list[str], label: str) -> None:
         errors.append(f"{label}: accepted native reference required")
     if type(item_id) is not int or item_id <= 0:
         errors.append(f"{label}: accepted native item id required")
+    if isinstance(native_ref, str) and native_ref:
+        match = re.search(r":group:([1-9][0-9]*):item:([1-9][0-9]*)$", native_ref)
+        if (
+            match is None
+            or f"group:{match.group(1)}" != ledger.get("channel")
+            or type(item_id) is not int
+            or int(match.group(2)) != item_id
+        ):
+            errors.append(
+                f"{label}: native reference and channel/item identity disagree"
+            )
+
+
+def _check_attempt(expected: Any, ledger: Any, errors: list[str], label: str) -> None:
+    if not isinstance(expected, dict) or set(expected) != ATTEMPT_KEYS:
+        errors.append(f"{label}: independent attempt identity required")
+        return
     if (
-        isinstance(native_ref, str)
-        and native_ref
-        and not native_ref.endswith(f":item:{item_id}")
+        not isinstance(expected.get("event_id"), str)
+        or not expected["event_id"]
+        or not isinstance(expected.get("outbox_id"), str)
+        or not expected["outbox_id"]
+        or type(expected.get("attempt_number")) is not int
+        or expected["attempt_number"] <= 0
     ):
-        errors.append(f"{label}: native reference and item identity disagree")
+        errors.append(f"{label}: invalid independent attempt identity")
+    if isinstance(ledger, dict) and any(
+        ledger.get(key) != expected[key] for key in ATTEMPT_KEYS
+    ):
+        errors.append(f"{label}: ledger differs from independently attempted identity")
 
 
 def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
     cases = record.get("cases")
     if not isinstance(cases, dict) or set(cases) != set(CASES):
         errors.append("All four required two-profile cases must be present")
+        return
+    if any(not isinstance(cases[name], dict) for name in CASES):
+        errors.append("All required cases must contain evidence objects")
         return
     recipient = record.get("recipient_worker") or {}
     window_start = recipient.get("ready_ns")
@@ -421,7 +478,13 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
     target = record.get("target_channel")
     recipient_target = record.get("recipient_target_channel")
     roster = record.get("roster_member_sha256s") or {}
+    if not isinstance(roster, dict):
+        errors.append("Recipient roster must be an object")
+        return
+    if recipient_target not in roster:
+        errors.append("Recipient target roster is missing")
     parent_observation: dict[str, Any] | None = None
+    sender_worker = record.get("sender_worker") or {}
     kill: Any = None
     redrive: Any = None
 
@@ -455,7 +518,9 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
             covered(parsed.get("observed_ns"), f"{label}[{index}]")
             member = parsed.get("sender_member_sha256")
             members = roster.get(channel) if type(channel) is str else None
-            if isinstance(members, list) and member not in members:
+            if not isinstance(members, list) or len(members) < 2:
+                errors.append(f"{label}[{index}]: destination roster is missing")
+            elif member not in members:
                 errors.append(
                     f"{label}[{index}]: observed by a peer outside the recipient roster"
                 )
@@ -481,7 +546,19 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
         ):
             errors.append("group_send_observed: sent text digest required")
         covered(group.get("send_ns"), "group_send_observed send")
+        if (
+            type(group.get("send_ns")) is int
+            and type(sender_worker.get("ready_ns")) is int
+            and group["send_ns"] < sender_worker["ready_ns"]
+        ):
+            errors.append("group_send_observed: send predates sender readiness")
         _check_ledger(group.get("ledger"), errors, "group_send_observed ledger")
+        _check_attempt(
+            group.get("expected_attempt"),
+            group.get("ledger"),
+            errors,
+            "group_send_observed",
+        )
         ledger = group.get("ledger")
         if isinstance(ledger, dict) and ledger.get("channel") != target:
             errors.append(
@@ -498,6 +575,12 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
                 errors.append(
                     "group_send_observed: the observation is not on the target channel"
                 )
+            if (
+                type(group.get("send_ns")) is int
+                and type(observed[0].get("observed_ns")) is int
+                and observed[0]["observed_ns"] < group["send_ns"]
+            ):
+                errors.append("group_send_observed: observation predates send")
             if observed[0].get("text_sha256") != group.get("sent_text_sha256"):
                 errors.append(
                     "group_send_observed: the observed plaintext differs from the send"
@@ -522,6 +605,12 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
             errors.append("native_quote_target: parent text digest required")
         covered(quote.get("send_ns"), "native_quote_target send")
         _check_ledger(quote.get("ledger"), errors, "native_quote_target ledger")
+        _check_attempt(
+            quote.get("expected_attempt"),
+            quote.get("ledger"),
+            errors,
+            "native_quote_target",
+        )
         ledger = quote.get("ledger")
         if isinstance(ledger, dict) and ledger.get("channel") != target:
             errors.append(
@@ -536,6 +625,28 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
             errors.append("native_quote_target: the quoted parent was not bound")
         else:
             reply = observed[0]
+            if quote.get("parent_item_id") != parent_observation.get("item_id"):
+                errors.append(
+                    "native_quote_target: declared parent differs from observation"
+                )
+            if quote.get("parent_text_sha256") != parent_observation.get("text_sha256"):
+                errors.append(
+                    "native_quote_target: declared parent digest differs from observation"
+                )
+            if (
+                type(quote.get("send_ns")) is int
+                and type(reply.get("observed_ns")) is int
+                and reply["observed_ns"] < quote["send_ns"]
+            ):
+                errors.append("native_quote_target: observation predates send")
+            if (
+                type(quote.get("send_ns")) is int
+                and type(parent_observation.get("observed_ns")) is int
+                and quote["send_ns"] < parent_observation["observed_ns"]
+            ):
+                errors.append(
+                    "native_quote_target: reply send predates parent observation"
+                )
             if reply.get("channel") != recipient_target:
                 errors.append("native_quote_target: reply is not on the target channel")
             if reply.get("text_sha256") != quote.get("sent_text_sha256"):
@@ -570,14 +681,46 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
         covered(redrive, "restart_continuation redrive")
         if type(kill) is not int:
             errors.append("restart_continuation: kill timestamp required")
+        elif (
+            isinstance(quote, dict)
+            and isinstance(quote.get("observations"), list)
+            and len(quote["observations"]) == 1
+            and isinstance(quote["observations"][0], dict)
+            and type(quote["observations"][0].get("observed_ns")) is int
+            and kill < quote["observations"][0]["observed_ns"]
+        ):
+            errors.append("restart_continuation: killed before reply observation")
         if type(redrive) is not int or (type(kill) is int and redrive <= kill):
             errors.append(
                 "restart_continuation: the redrive must follow the worker exit"
             )
         exited = sender.get("exited_ns")
+        if sender.get("exit_signal") != "SIGKILL" or type(exited) is not int:
+            errors.append("restart_continuation: confirmed SIGKILL exit required")
         if type(kill) is int and type(exited) is int and exited < kill:
             errors.append(
                 "restart_continuation: the exit predates the injected failure"
+            )
+        if recipient.get("pid") in {
+            sender.get("pid"),
+            sender.get("redrive_pid"),
+        } or sender.get("pid") == sender.get("redrive_pid"):
+            errors.append(
+                "restart_continuation: independent worker process identities required"
+            )
+        started = sender.get("redrive_started_ns")
+        ready = sender.get("redrive_ready_ns")
+        if type(started) is not int or type(exited) is not int or started <= exited:
+            errors.append(
+                "restart_continuation: replacement must start after sender exit"
+            )
+        if type(ready) is not int or type(started) is not int or ready < started:
+            errors.append(
+                "restart_continuation: replacement readiness must follow launch"
+            )
+        if type(redrive) is int and type(ready) is int and redrive < ready:
+            errors.append(
+                "restart_continuation: redrive must follow replacement readiness"
             )
         redrive_pid = sender.get("redrive_pid")
         if (
@@ -592,8 +735,17 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
         if not isinstance(reused, str) or not reused:
             errors.append("restart_continuation: reused native reference required")
         ledger = restart.get("ledger")
+        if not isinstance(ledger, dict):
+            errors.append("restart_continuation: accepted reply ledger is required")
         if isinstance(ledger, dict):
             _check_ledger(ledger, errors, "restart_continuation ledger")
+            reply_ledger = quote.get("ledger") if isinstance(quote, dict) else None
+            if not isinstance(reply_ledger, dict) or any(
+                ledger.get(key) != reply_ledger.get(key) for key in LEDGER_KEYS
+            ):
+                errors.append(
+                    "restart_continuation: ledger differs from original reply handoff"
+                )
             if (
                 isinstance(reused, str)
                 and reused
@@ -602,6 +754,16 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
                 errors.append(
                     "restart_continuation: the ledger reference was not reused"
                 )
+        if not isinstance(quote, dict) or restart.get("reply_text_sha256") != quote.get(
+            "sent_text_sha256"
+        ):
+            errors.append(
+                "restart_continuation: reply digest differs from original reply"
+            )
+        if restart.get("reply_retained_after_redrive") is not True:
+            errors.append(
+                "restart_continuation: retained reply not reobserved after redrive"
+            )
         total = restart.get("reply_observations_total")
         if type(total) is not int or total != 1:
             errors.append(
@@ -625,7 +787,7 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
         else:
             sent = transient.get("recipient_send_ns")
             if type(sent) is not int or not (
-                type(redrive) is int and kill < sent < redrive
+                type(exited) is int and type(started) is int and exited < sent < started
             ):
                 errors.append(
                     "transient_worker_admission: the message must arrive while the "
@@ -650,14 +812,18 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
         else:
             if entry.get("text_sha256") != transient.get("sent_text_sha256"):
                 errors.append("transient_worker_admission: admitted plaintext differs")
-            if entry.get("provenance") not in {"recovered", "live"}:
+            if not isinstance(entry.get("provenance"), str) or entry.get(
+                "provenance"
+            ) not in {"recovered", "live"}:
                 errors.append(
                     "transient_worker_admission: unexpected admission provenance"
                 )
-            if entry.get("channel") != recipient_target:
+            if entry.get("channel") != target:
                 errors.append(
                     "transient_worker_admission: admission on another channel"
                 )
+            if entry.get("event_kind") != "message.created":
+                errors.append("transient_worker_admission: creation event required")
             if not isinstance(entry.get("event_id"), str) or not entry["event_id"]:
                 errors.append(
                     "transient_worker_admission: admitted event identity required"
@@ -665,6 +831,14 @@ def _check_case_bindings(record: dict[str, Any], errors: list[str]) -> None:
             if type(entry.get("admitted_ns")) is not int:
                 errors.append(
                     "transient_worker_admission: admission timestamp required"
+                )
+            elif (
+                type(transient.get("recipient_send_ns")) is int
+                and type(started) is int
+                and entry["admitted_ns"] < max(transient["recipient_send_ns"], started)
+            ):
+                errors.append(
+                    "transient_worker_admission: admission predates send or replacement"
                 )
 
 
@@ -709,29 +883,64 @@ async def resolved_commit(tree: Path) -> str:
     return revision
 
 
-async def _provider_src_unchanged(tree: Path, pinned: str) -> bool:
-    """Verify the production source tree is byte-identical to the pinned revision."""
-    process = await asyncio.create_subprocess_exec(
-        "git",
-        "-C",
-        str(tree),
-        "diff",
-        "--quiet",
-        pinned,
-        "HEAD",
-        "--",
-        "src",
-        stdout=asyncio.subprocess.DEVNULL,
-        stderr=asyncio.subprocess.DEVNULL,
+async def _source_unchanged(tree: Path, pinned: str, source: str) -> bool:
+    """Compare imported bytes, including index edits and untracked importable files.
+
+    A commit-to-commit comparison alone ignores edits in the working directory.
+    """
+
+    async def git(*args: str) -> tuple[int, str]:
+        process = await asyncio.create_subprocess_exec(
+            "git",
+            "-C",
+            str(tree),
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            async with asyncio.timeout(30):
+                output, _ = await process.communicate()
+        except TimeoutError:
+            process.kill()
+            await process.wait()
+            raise
+        return process.returncode or 0, output.decode().strip()
+
+    status, _ = await git("diff", "--quiet", pinned, "--", source)
+    if status != 0:
+        return False
+    status, untracked = await git(
+        "ls-files", "--others", "--exclude-standard", "--", source
     )
+    return status == 0 and not untracked
+
+
+async def _provider_src_unchanged(tree: Path, pinned: str) -> bool:
+    return await _source_unchanged(tree, pinned, "src")
+
+
+def _validate_local_server(server: str) -> None:
+    """This one-host tier permits only numeric loopback SMP endpoints."""
+    if not isinstance(server, str) or any(ch.isspace() for ch in server):
+        raise ValueError("The SMP server must use a numeric loopback address")
     try:
-        async with asyncio.timeout(30):
-            await process.communicate()
-    except TimeoutError:
-        process.kill()
-        await process.wait()
-        raise
-    return process.returncode == 0
+        parsed = urlsplit(server)
+        address = ipaddress.ip_address(parsed.hostname or "")
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("The SMP server must use a numeric loopback address") from exc
+    if (
+        parsed.scheme != "smp"
+        or not address.is_loopback
+        or not parsed.username
+        or parsed.password is not None
+        or parsed.path
+        or parsed.query
+        or parsed.fragment
+        or (port is not None and not 1 <= port <= 65535)
+    ):
+        raise ValueError("The SMP server must use a numeric loopback address")
 
 
 def _sha256(text: str) -> str:
@@ -811,6 +1020,7 @@ class DurableHarnessContext:
         self.state_dir = Path(state_dir)
         self.path = self.state_dir / "admission.jsonl"
         self.checkpoints_path = self.state_dir / "checkpoints.json"
+        self._checkpoint_lock = asyncio.Lock()
         self.context = AdapterContext(
             adapter_id,
             self._publish,
@@ -858,16 +1068,28 @@ class DurableHarnessContext:
             return None
         return SimpleCheckpoint(stored["cursor"], stored["metadata_json"])
 
-    async def _commit(self, stream: str, cursor: str, metadata_json: str) -> None:
+    def _commit_sync(self, stream: str, cursor: str, metadata_json: str) -> None:
+        """Write both stream cursors together; replace crash-atomically."""
         try:
-            text = await asyncio.to_thread(self.checkpoints_path.read_text, "utf-8")
-            checkpoints = json.loads(text)
-        except (FileNotFoundError, ValueError):
+            checkpoints = json.loads(self.checkpoints_path.read_text("utf-8"))
+        except FileNotFoundError:
             checkpoints = {}
+        if not isinstance(checkpoints, dict):
+            raise ValueError("Stored checkpoint map is invalid")
         checkpoints[stream] = {"cursor": cursor, "metadata_json": metadata_json}
-        await asyncio.to_thread(
-            self.checkpoints_path.write_text, json.dumps(checkpoints), "utf-8"
-        )
+        temp = self.checkpoints_path.with_suffix(".json.tmp")
+        try:
+            with temp.open("w", encoding="utf-8") as handle:
+                json.dump(checkpoints, handle, sort_keys=True)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temp, self.checkpoints_path)
+        finally:
+            temp.unlink(missing_ok=True)
+
+    async def _commit(self, stream: str, cursor: str, metadata_json: str) -> None:
+        async with self._checkpoint_lock:
+            await asyncio.to_thread(self._commit_sync, stream, cursor, metadata_json)
 
 
 class SimpleCheckpoint:
@@ -916,7 +1138,7 @@ def _full_link(record: Any) -> str:
     """Require the server-embedded full connection link, never a hosted shortcut."""
     connection = (record or {}).get("connLinkContact") or {}
     link = connection.get("connFullLink")
-    if not isinstance(link, str) or not link.startswith(("simplex:/", "https://")):
+    if not isinstance(link, str) or not link.startswith("simplex:/"):
         raise RuntimeError("A server-embedded full group link is required")
     return link
 
@@ -974,7 +1196,7 @@ async def _ensure_group_link(api: Any, group_id: int) -> str:
 
 
 def _roster(
-    recipient_groups: Any, sender_digests: dict[str, str]
+    recipient_groups: Any, sender_digests: dict[str, str | None]
 ) -> dict[str, list[str]]:
     """Digest per-group member rosters captured during provisioning.
 
@@ -994,6 +1216,48 @@ def _roster(
         if len(members) >= 2:
             roster[channel] = sorted(members)
     return roster
+
+
+async def _redrive_with_send_count(adapter: Any, rendering: Any) -> tuple[Any, int]:
+    """Count native worker send requests, even when the request fails."""
+    session = adapter.session
+    native_call = session.call
+    requests = 0
+
+    async def counted(operation: str, **args: Any) -> Any:
+        nonlocal requests
+        if operation == "send":
+            requests += 1
+        return await native_call(operation, **args)
+
+    session.call = counted
+    try:
+        result = await adapter.deliver(rendering)
+    finally:
+        session.call = native_call
+    return result, requests
+
+
+def _fresh_reply_retained(
+    native_items: Any, *, channel: str, reply: dict[str, Any], parent: dict[str, Any]
+) -> bool:
+    """Reinspect the exact native item, not a prior cached observation."""
+    if not isinstance(native_items, list):
+        return False
+    for item in native_items:
+        view = _native_view(item)
+        if view is not None and all(
+            view.get(key) == expected
+            for key, expected in (
+                ("channel", channel),
+                ("item_id", reply.get("item_id")),
+                ("text_sha256", reply.get("text_sha256")),
+                ("quoted_item_id", parent.get("item_id")),
+                ("quoted_text_sha256", parent.get("text_sha256")),
+            )
+        ):
+            return True
+    return False
 
 
 def _rendered(
@@ -1154,6 +1418,7 @@ async def run_campaign(
     from medre.adapters.simplexchat.config import SimplexChatConfig
     from medre.adapters.simplexchat.session import SimplexChatSession
 
+    _validate_local_server(server)
     run_id = secrets.token_hex(6)
     root = Path(root)
     await asyncio.to_thread(root.mkdir, 0o700, True, True)
@@ -1167,7 +1432,9 @@ async def run_campaign(
         )
     core_tree = (await asyncio.to_thread(Path(core_init).resolve)).parents[3]
     core_commit = await resolved_commit(core_tree)
-    if core_commit != expected_core_commit:
+    if core_commit != expected_core_commit or not await _source_unchanged(
+        core_tree, expected_core_commit, "src"
+    ):
         raise RuntimeError(
             "The installed core source does not match the selected qualification target"
         )
@@ -1176,10 +1443,8 @@ async def run_campaign(
             Path(importlib.import_module("medre.adapters.simplexchat").__file__).resolve
         )
     ).parents[4]
-    provider_pin = await resolved_commit(
-        (await asyncio.to_thread(Path(__file__).resolve)).parents[1]
-    )
-    if provider_pin != expected_provider_commit:
+    provider_pin = expected_provider_commit
+    if not COMMIT.fullmatch(provider_pin):
         raise RuntimeError(
             "The provider checkout does not match the selected qualification target"
         )
@@ -1188,7 +1453,12 @@ async def run_campaign(
         raise RuntimeError(
             "Provider production source differs from the pinned qualification revision"
         )
-    harness_commit = await resolved_commit(adapter_tree)
+    harness_tree = (await asyncio.to_thread(Path(__file__).resolve)).parents[1]
+    harness_commit = await resolved_commit(harness_tree)
+    if not await _source_unchanged(
+        harness_tree, harness_commit, "scripts/qualify_two_profile_recipient.py"
+    ):
+        raise RuntimeError("The executed qualification harness has uncommitted changes")
 
     sender_tag = f"sender-{secrets.token_hex(3)}"
     recipient_tag = f"recipient-{secrets.token_hex(3)}"
@@ -1197,14 +1467,16 @@ async def run_campaign(
     key_sender = secrets.token_hex(24)
     key_recipient = secrets.token_hex(24)
 
-    sender_api, sender_user = await _provision_profile(
-        profiles / "sender" / "profile", key_sender, sender_tag, server
-    )
-    recipient_api, recipient_user = await _provision_profile(
-        profiles / "recipient" / "profile", key_recipient, recipient_tag, server
-    )
     sender_digests: dict[str, str] = {}
-    try:
+    async with AsyncExitStack() as provision_cleanup:
+        sender_api, sender_user = await _provision_profile(
+            profiles / "sender" / "profile", key_sender, sender_tag, server
+        )
+        provision_cleanup.push_async_callback(sender_api.close)
+        recipient_api, recipient_user = await _provision_profile(
+            profiles / "recipient" / "profile", key_recipient, recipient_tag, server
+        )
+        provision_cleanup.push_async_callback(recipient_api.close)
         target_group = await sender_api.api_new_group(
             sender_user, {"displayName": f"camp-{run_id}", "fullName": ""}
         )
@@ -1225,14 +1497,15 @@ async def run_campaign(
         sibling_recipient = await _join_group(
             recipient_api, recipient_user, sibling_link, known={target_recipient}
         )
-    finally:
-        await sender_api.close()
-        await recipient_api.close()
 
     target_channel = f"group:{target_sender}"
     recipient_target_channel = f"group:{target_recipient}"
     sibling_channels = [f"group:{sibling_sender}"]
     recipient_sibling_channels = [f"group:{sibling_recipient}"]
+    recipient_sender_digests = {
+        recipient_target_channel: sender_digests.get(target_channel),
+        recipient_sibling_channels[0]: sender_digests.get(sibling_channels[0]),
+    }
 
     def sender_config() -> SimplexChatConfig:
         return SimplexChatConfig(
@@ -1266,6 +1539,7 @@ async def run_campaign(
         "exit_signal": None,
         "redrive_pid": None,
         "redrive_ready_ns": None,
+        "redrive_started_ns": None,
         "stopped_ns": None,
     }
     recipient_lifecycle = {"pid": None, "ready_ns": None, "stopped_ns": None}
@@ -1302,7 +1576,7 @@ async def run_campaign(
         recipient_lifecycle["ready_ns"] = time.monotonic_ns()
         observer = _Observer(recipient_session)
         recipient_groups = await recipient_session.call("groups")
-        roster = _roster(recipient_groups, sender_digests)
+        roster = _roster(recipient_groups, recipient_sender_digests)
         if recipient_target_channel not in roster:
             raise RuntimeError("Recipient roster for the target group is unavailable")
 
@@ -1314,6 +1588,7 @@ async def run_campaign(
         sender["ready_ns"] = time.monotonic_ns()
 
         # Case: routed group send observed by the independent recipient.
+        parent_send_ns = time.monotonic_ns()
         parent_result = await sender_adapter.deliver(
             _rendered(
                 parent_attempt.event_id,
@@ -1324,7 +1599,6 @@ async def run_campaign(
                 parent_attempt,
             )
         )
-        parent_send_ns = time.monotonic_ns()
         parent_ledger = _ledger_row(
             state_root / "sender",
             parent_attempt.outbox_id,
@@ -1341,6 +1615,7 @@ async def run_campaign(
         )
 
         # Case: native reply quoting the exact parent, observed by the recipient.
+        reply_send_ns = time.monotonic_ns()
         reply_result = await sender_adapter.deliver(
             _rendered(
                 reply_attempt.event_id,
@@ -1352,7 +1627,6 @@ async def run_campaign(
                 reply_native_ref=parent_result.native_message_id,
             )
         )
-        reply_send_ns = time.monotonic_ns()
         reply_ledger = _ledger_row(
             state_root / "sender", reply_attempt.outbox_id, reply_attempt.attempt_number
         )
@@ -1366,13 +1640,17 @@ async def run_campaign(
         # Transient worker failure: kill the owned sender worker process group.
         os.killpg(sender["pid"], signal.SIGKILL)
         kill_ns = time.monotonic_ns()
+        original_process = sender_adapter.session.process
+        await sender_adapter.session.stop()
+        if original_process is None or original_process.returncode != -signal.SIGKILL:
+            raise RuntimeError("The sender worker was not reaped with SIGKILL")
         sender["exited_ns"] = time.monotonic_ns()
         sender["exit_signal"] = "SIGKILL"
-        await sender_adapter.session.stop()
         await sender_adapter.stop()
         sender_adapter = None
 
         # Admission preserved: the recipient sends while the sender worker is down.
+        recipient_send_ns = time.monotonic_ns()
         await recipient_session.call(
             "send",
             chat_type="group",
@@ -1380,9 +1658,9 @@ async def run_campaign(
             text=nonce_transient,
             quoted_item_id=None,
         )
-        recipient_send_ns = time.monotonic_ns()
 
         # Fresh worker redrives on the same profile and admits the missed message.
+        sender["redrive_started_ns"] = time.monotonic_ns()
         redrive_adapter = SimplexChatAdapter(sender_config())
         await redrive_adapter.start(
             DurableHarnessContext("qualifytwo", state_root / "sender").context
@@ -1398,8 +1676,8 @@ async def run_campaign(
 
         await _wait_until(transient_admitted, timeout_s=60)
 
-        # Restart continuation: redrive the accepted reply handoff with zero sends.
-        redrive_result = await redrive_adapter.deliver(
+        redrive_result, new_sends = await _redrive_with_send_count(
+            redrive_adapter,
             _rendered(
                 reply_attempt.event_id,
                 "qualifytwo",
@@ -1408,7 +1686,7 @@ async def run_campaign(
                 nonce_reply,
                 reply_attempt,
                 reply_native_ref=parent_result.native_message_id,
-            )
+            ),
         )
         redrive_ns = time.monotonic_ns()
         redrive_ledger = _ledger_row(
@@ -1426,7 +1704,20 @@ async def run_campaign(
             and redrive_ledger.get("native_ref") == reply_ledger.get("native_ref")
             and redrive_ledger.get("native_ref") == accepted_reply_ref
         )
-        new_sends = 0 if reuse_note_ok and ledger_reused else 1
+        # Fresh retained-history observation, not the observer's accumulated
+        # pre-restart events. A missing reply after redrive must fail.
+        retained = await recipient_session.call(
+            "history", chat_type="group", chat_id=target_recipient, before=None
+        )
+        retained_rows = (
+            retained.get("chatItems", []) if isinstance(retained, dict) else []
+        )
+        retained_reply_after_redrive = len(reply_views) == 1 and _fresh_reply_retained(
+            retained_rows,
+            channel=recipient_target_channel,
+            reply=reply_views[0],
+            parent=parent_view,
+        )
 
         await recipient_session.stop()
         recipient_lifecycle["stopped_ns"] = time.monotonic_ns()
@@ -1434,6 +1725,10 @@ async def run_campaign(
         redrive_adapter = None
         sender["stopped_ns"] = time.monotonic_ns()
 
+        parent_views = observer.matching(parent_digest)
+        sibling_hits = observer.sibling_matches(
+            parent_digest, recipient_sibling_channels
+        )
         journal_entry = next(
             (
                 entry
@@ -1473,6 +1768,11 @@ async def run_campaign(
                     "sent_text_sha256": parent_digest,
                     "send_ns": parent_send_ns,
                     "ledger": parent_ledger,
+                    "expected_attempt": {
+                        "event_id": parent_attempt.event_id,
+                        "outbox_id": parent_attempt.outbox_id,
+                        "attempt_number": parent_attempt.attempt_number,
+                    },
                     "observations": parent_views,
                     "sibling_observations": sibling_hits,
                 },
@@ -1489,6 +1789,11 @@ async def run_campaign(
                     "sent_text_sha256": reply_digest,
                     "send_ns": reply_send_ns,
                     "ledger": reply_ledger,
+                    "expected_attempt": {
+                        "event_id": reply_attempt.event_id,
+                        "outbox_id": reply_attempt.outbox_id,
+                        "attempt_number": reply_attempt.attempt_number,
+                    },
                     "observations": reply_views,
                     "sibling_observations": observer.sibling_matches(
                         reply_digest, recipient_sibling_channels
@@ -1502,6 +1807,8 @@ async def run_campaign(
                         and ledger_reused
                         and reply_total == 1
                         and sender["redrive_pid"] != sender["pid"]
+                        and retained_reply_after_redrive
+                        and new_sends == 0
                     ),
                     "redrive_ns": redrive_ns,
                     "kill_ns": kill_ns,
@@ -1509,10 +1816,14 @@ async def run_campaign(
                     "ledger": redrive_ledger,
                     "reply_text_sha256": reply_digest,
                     "reply_observations_total": reply_total,
+                    "reply_retained_after_redrive": retained_reply_after_redrive,
                     "new_sends": new_sends,
                 },
                 "transient_worker_admission": {
-                    "passed": bool(journal_entry),
+                    "passed": bool(
+                        journal_entry
+                        and journal_entry.get("event_kind") == "message.created"
+                    ),
                     "sent_text_sha256": transient_digest,
                     "recipient_send_ns": recipient_send_ns,
                     "journal_entry": journal_entry,
