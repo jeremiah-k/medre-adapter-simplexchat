@@ -17,7 +17,9 @@ revision because the run executed from that exact provider source tree.
 - Two dedicated native profiles, independently controlled processes, on one
   Linux host; an unprivileged local messaging-server container (non-root
   user, tmpfs-only storage, no host binds, published to host loopback only)
-  was the only enabled server for both profiles.
+  was the only enabled server for both profiles; the
+  [server recipe](../../qualification/two-profile-recipient.md#local-messaging-server)
+  reproduces it.
 - The verdict record is content-free: profile tags, digests, opaque native
   references, monotonic timestamps and process identities only. Raw traces,
   links, server addresses and profile databases stayed in the operator's

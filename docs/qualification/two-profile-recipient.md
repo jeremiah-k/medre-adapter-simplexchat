@@ -52,6 +52,42 @@ use the server-embedded full connection link; hosted short links are
 refused so the network stays on the selected local server. Both profiles
 must end up with exactly one enabled server, the local one.
 
+### Local messaging server
+
+The server can be a disposable container from the official image on the same
+host. The image's entrypoint runs as root and starts an HTTPS site on port 443,
+so it is bypassed: the server runs as an unprivileged user, keeps all state in
+memory-backed mounts, has no host bind mounts, and publishes one port on host
+loopback only. Each container is a fresh server with a new fingerprint; its
+state disappears with it.
+
+```shell
+SMP_IMAGE="$(docker image inspect simplexchat/smp-server:latest --format '{{index .RepoDigests 0}}')"
+docker run -d --name medre-smp-tier \
+  --user 65534:65534 \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --tmpfs /etc/opt/simplex:uid=65534,gid=65534,mode=700 \
+  --tmpfs /var/opt/simplex:uid=65534,gid=65534,mode=700 \
+  -p 127.0.0.1:5223:5223 \
+  --entrypoint /bin/sh "$SMP_IMAGE" -c \
+  'smp-server init --yes --disable-store-log --disable-web --ip 127.0.0.1 --no-password >/dev/null 2>&1 \
+   && sed -i "s/^port = .*/port = 5223/" /etc/opt/simplex/smp-server.ini \
+   && exec smp-server start +RTS -N -RTS'
+docker logs medre-smp-tier 2>&1 | grep -E 'Server address|Serving SMP protocol'
+docker exec medre-smp-tier cat /etc/opt/simplex/fingerprint
+docker rm -f -v medre-smp-tier
+```
+
+`--disable-web` is required: with the web section enabled the server exits for
+want of HTTPS credentials. `--disable-store-log` keeps messages in memory, so
+nothing is written outside the memory-backed mounts. The `sed` edit leaves only
+the unprivileged port, because the generated configuration also lists 443. The
+server address is `smp://<fingerprint>=@127.0.0.1`, where the fingerprint is the
+file's single line; pass it as `MEDRE_SIMPLEX_TIER_SERVER` and pin the image
+digest in the campaign record. Do not add `--privileged`, host networking or a
+host bind mount to make this run.
+
 ```shell
 python scripts/qualify_two_profile_recipient.py --check-sdk
 MEDRE_SIMPLEX_TIER_SERVER="smp://..." \
