@@ -13,10 +13,10 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import ipaddress
 import hashlib
 import importlib
 import importlib.metadata
+import ipaddress
 import json
 import logging
 import os
@@ -28,10 +28,10 @@ import sys
 import time
 import tomllib
 from contextlib import AsyncExitStack
-from urllib.parse import urlsplit
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 FORMAT = "medre-simplex-two-profile-recipient-evidence"
 VERSION = 2
