@@ -1,4 +1,4 @@
-# SimpleX provider contract
+# SimpleX adapter contract
 
 ## Native ownership
 

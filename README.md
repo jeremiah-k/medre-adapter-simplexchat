@@ -1,89 +1,55 @@
-# MEDRE SimpleX Chat adapter
+# medre-adapter-simplexchat
 
-Bridge allowlisted SimpleX Chat groups and direct conversations through the
-[official Python client](https://github.com/simplex-chat/simplex-chat/tree/stable/packages/simplex-chat-python).
-Group chat is the primary workflow. The provider includes plain-text attribution,
-scoped native replies with readable fallback, durable admission, and an SDK-free fake for development.
+The SimpleX Chat adapter for MEDRE.
 
 ## Install
 
-Keep core and adapters in one locked uv project:
-
-```bash
-uv init --bare medre-bridge
-cd medre-bridge
-uv add medre medre-adapter-simplexchat
-```
-
-Keep the project lock for reproducible deployments. For Git development
-sources, select immutable revisions. The provider pins the
-released official `simplex-chat` package at the manifest pin. Its native library is downloaded
-on first initialization; no separate CLI daemon or unofficial wrapper is needed.
-The SDK supports Linux, macOS and Windows on its published architectures; CI
-qualifies Linux x86-64. The new private-link export commands require POSIX
-file permissions; they reject non-POSIX platforms before native mutation.
-This restriction does not change the other commands. This adapter's code is MIT licensed. The official SDK and
-native library carry their own AGPL-3.0 license.
-
-For a persistent MEDRE 0.1.1 or later tool installation:
+Use [uv](https://docs.astral.sh/uv/getting-started/installation/) to install
+MEDRE and this adapter in the same persistent tool environment:
 
 ```bash
 uv tool install medre
 medre adapters install simplexchat
 ```
 
-Existing saved Git requests and catalogs retain their sources. On Windows,
-run the printed uv installation command after MEDRE exits. Use `medre adapter simplexchat` for
-profile commands. The standalone `medre-simplexchat` entry point remains
-available in activated project environments with the same arguments.
+The adapter pins the released official
+[simplex-chat Python client](https://github.com/simplex-chat/simplex-chat/tree/stable/packages/simplex-chat-python)
+at the manifest pin. Group chat is the primary workflow. Its native library is
+downloaded on first initialization; no separate CLI daemon or unofficial
+wrapper is needed. The SDK supports Linux, macOS and Windows on its published
+architectures; CI qualifies Linux x86-64. The private-link export commands
+require POSIX file permissions; they reject non-POSIX platforms before native
+mutation. This restriction does not change the other commands. This adapter's
+code is MIT licensed. The official SDK and native library carry their own
+AGPL-3.0 license.
 
-## Setup guidance boundary
+On Windows, run the printed uv installation command after MEDRE exits. Use
+`medre adapter simplexchat` for profile commands. The standalone
+`medre-simplexchat` entry point remains available in activated project
+environments with the same arguments.
 
-> The commands in this journey use `--adapter sx` as an **example** instance.
-> Replace that value consistently with the actual configured provider ID before
-> running commands. `medre config native` displays instructions only; it does
-> not substitute IDs, provision accounts, or create a bridge.
-
-`medre config native` offers no SimpleX form and never provisions this
-transport. What it prints depends on the installed core revision:
-
-- Cores without a typed setup-guidance seam refuse the transport with
-  "'simplexchat' has no provider-declared native setup prompts; use its
-  native configuration guide", pointing at this provider-owned guide.
-- Cores with the seam render the provider's declared setup journey as an
-  informational, offline listing of the same commands with per-step evidence
-  notes, classified `informational_only`. The render exits without writing a
-  configuration file, invokes nothing, and claims no provisioning: it is
-  guidance, not setup.
-
-Both behaviors route to the same journey below and to
-`medre adapter simplexchat` for actual profile provisioning; core does not
-invoke those commands automatically because they contact the native service,
-unlike `config native`.
-
-Core's `AdapterSpec` carries provider-owned setup surfaces: `cli_register`,
-which exposes the provider's provisioning commands in the journey below;
-`native_setup_fields`, an offline form that prompts for provider-declared
-config values and writes a new YAML without contacting an SDK, account, or
-device; and, on cores with the typed seam, `native_setup_instructions`, the
-informational journey for form-less providers that this provider declares.
-SimpleX profile, contact, and group provisioning cannot happen offline:
-connection links and group membership require the native service. An offline
-form could reference an existing profile, but could not provision it or
-complete contact and group membership. The provider declares no such form;
-it declares its journey as typed instructions so `medre config native` can
-print exactly the commands below with evidence notes at their true levels. A
-linked contact or a created group is not independently witnessed delivery,
-and provisioning results are never relay acceptance, delivery, or read
-evidence; they grant no send authority. This document remains the
-configuration guide that older cores' refusal points to.
+For a persistent bridge, prefer one locked uv project: add `medre` and
+`medre-adapter-simplexchat` to the project and run commands with
+`uv run --locked`, keeping the committed lock for reproducible deployments.
+For Git development sources, select immutable revisions; existing saved Git
+requests and catalogs retain their sources. See the
+[adapter installation guide](https://github.com/jeremiah-k/medre/blob/main/docs/ops/adapter-installation.md).
 
 ## Provision a dedicated profile
 
-Setup proceeds in stages: prerequisites, explicit provisioning commands,
-verification, and the configuration reference. Provisioning always contacts the
+Setup proceeds in stages: prerequisites, explicit provisioning commands, then
+configuration and verification. Provisioning always contacts the
 native service; initialization is explicit and starting MEDRE does not silently
-create a SimpleX identity.
+create a SimpleX identity. `medre config native` renders this journey
+informationally on cores with the typed setup-guidance seam; it never
+provisions this transport — use the `medre adapter simplexchat` commands
+below, and see
+[adapter maintenance](docs/dev/adapter-maintenance.md) for the seam contract.
+
+> The commands in this journey use `--adapter sx` as an **example** instance.
+> Replace that value consistently with the actual configured adapter ID before
+> running commands. `medre config native` displays instructions only; it does
+> not substitute IDs, provision accounts, or create a bridge.
 
 ### Stage 1: prerequisites
 
@@ -101,7 +67,7 @@ create a SimpleX identity.
 
 ### Stage 2: explicit provisioning commands
 
-Run the provider's own commands in order. In a uv deployment project, prefix
+Run the adapter's own commands in order. In a uv deployment project, prefix
 each with `uv run --locked`; the standalone `medre-simplexchat` entry point
 takes the same arguments.
 
@@ -146,7 +112,7 @@ connections for a bounded interval, and
 `create-group --adapter sx --name 'Bridge room'` creates a bot-owned group.
 `contacts --adapter sx` lists direct chat IDs from the same profile.
 
-### Stage 3: verification
+### Verification
 
 Read each result at its true evidence level:
 
@@ -167,34 +133,55 @@ Read each result at its true evidence level:
   native local queue, and health describes the local native session, not peer
   reachability. See [Delivery and recovery](#delivery-and-recovery).
 
-### Stage 4: configuration reference
+## Configure
 
 Use IDs from this profile's `groups` or `contacts` output:
 
 ```yaml
+runtime:
+  adapter_start_timeout_seconds: 120
 adapters:
   simplexchat:
     sx:
+      adapter_kind: real
       user_id: 1
       chats: [group:7, contact:3]
       origin_label: SimpleX Chat
+routes: {}
 ```
 
-When a runtime YAML exists, `--config bridge.yaml --adapter sx` selects its
-profile and honors MEDRE's environment overrides. Routes use explicit channel
-strings such as `source_channel: "group:7"` and `dest_channel: "group:7"`.
-Both source and destination channels must be allowlisted. Ordinary active
+`adapter_start_timeout_seconds` bounds the complete adapter start; the native
+session needs that headroom, and large retained histories can need more.
+Routes use explicit channel strings such as `source_channel: "group:7"` and
+`dest_channel: "group:7"`. Both source and destination channels must be
+allowlisted. Ordinary active
 groups and accepted active contacts are supported; private group support
-conversations are excluded. This example configures only one provider;
+conversations are excluded. This example configures only one adapter;
 add a second adapter and explicit route legs with `medre config bridge`.
 Run `medre config check` and `medre routes plan` before starting; these
-offline checks do not prove native acceptance or recipient delivery.
+offline checks do not prove native acceptance or recipient delivery. For
+storage, cache, and library overrides, see the
+[SimpleX Chat setup guide](https://github.com/jeremiah-k/medre/blob/main/docs/ops/transport-setup/simplexchat.md).
 
 Set an encrypted profile's key with `MEDRE_ADAPTER__SX__DATABASE_KEY`; keep it
 out of YAML and arguments. `database_prefix` and `state_dir` override private
 storage. On Linux, `native_cache_dir` controls the SDK cache through XDG; on
 other systems the SDK uses its platform cache. `libs_dir` selects an existing
-official native library directory on any supported platform.
+official native library directory on any supported platform. When a runtime
+YAML exists, `--config bridge.yaml --adapter sx` selects its profile and
+honors MEDRE's environment overrides.
+
+## Verify
+
+Confirm the installed adapter and the saved configuration resolve:
+
+```bash
+medre adapters check --config connections.yaml
+```
+
+The setup guide's
+[Verify](https://github.com/jeremiah-k/medre/blob/main/docs/ops/transport-setup/simplexchat.md#verify)
+section shows the bridge checks, recovery behavior, and evidence levels.
 
 ## Delivery and recovery
 
@@ -243,7 +230,7 @@ written_, the unsent reservation is released and core can retry. A native
 rejection after submission is not proof of no handoff and remains uncertain.
 Health describes the local native session, not peer reachability.
 
-## Develop and validate
+## Development
 
 Register arbitrary checkout paths with `medre dev`; sibling directories are not
 required:
@@ -265,8 +252,12 @@ selection and dependency options. CI checks
 this adapter against core `main`, resolved once per run, recording both revisions.
 Keep `MEDRE_CORE_REF` unset. Its manual `core_ref`
 input qualifies a candidate core revision without committing temporary branch pins.
+See [contributing](CONTRIBUTING.md) for the shared Trunk quality gate and
+uv-based editable development workflow; maintainer material — the
+setup-guidance seam contract — lives in
+[adapter maintenance](docs/dev/adapter-maintenance.md).
 
-Run tests from a development environment containing core and this provider:
+Run tests from a development environment containing core and this adapter:
 
 ```bash
 python -m pytest -q
@@ -280,13 +271,8 @@ and proves local queue acceptance. It does not prove remote message receipt.
 Independent-profile group routing and adding SimpleX to the native all-adapter
 campaign require a separate live qualification run.
 
-The [provider contract](docs/spec/simplexchat.md) and
+The [adapter contract](docs/spec/simplexchat.md) and
 [configuration schema](docs/schemas/config.schema.json) describe the runtime
 boundaries and versioned metadata projection.
-
-## Development tooling
-
-See [contributing](CONTRIBUTING.md) for the shared Trunk quality gate and uv-based
-editable development workflow.
 
 Native reply qualification is recorded in the [boundary follow-up](docs/evidence/native-reply-boundaries-sdk-7.1.3-2026-11-16/README.md).
