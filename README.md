@@ -271,7 +271,7 @@ and proves local queue acceptance. It does not prove remote message receipt.
 Independent-profile group routing and adding SimpleX to the native all-adapter
 campaign require a separate live qualification run.
 
-The [provider contract](docs/spec/simplexchat.md) and
+The [adapter contract](docs/spec/simplexchat.md) and
 [configuration schema](docs/schemas/config.schema.json) describe the runtime
 boundaries and versioned metadata projection.
 
