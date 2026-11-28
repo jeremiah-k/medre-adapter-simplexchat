@@ -52,7 +52,7 @@ class FakeSimplexChatAdapter(SimplexChatAdapter):
             self.adapter_id,
             self.platform,
             self.role,
-            "0.2.0",
+            "0.3.0",
             self._capabilities,
             health=self.state,
         )
